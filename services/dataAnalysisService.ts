@@ -208,13 +208,9 @@ async function extractTextFromPdfWithPdfJs(file: File): Promise<string> {
         const typedArray = new Uint8Array(event.target.result as ArrayBuffer);
         
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-            console.warn('pdfjsLib.GlobalWorkerOptions.workerSrc belum diatur. Ini dapat menyebabkan masalah.');
-             try {
-                const { GlobalWorkerOptions } = await import('pdfjs-dist');
-                GlobalWorkerOptions.workerSrc = await import('pdfjs-dist/build/pdf.worker.min.js').then(m => m.default || m);
-             } catch (workerError) {
-                console.error('Gagal memuat worker PDF.js secara dinamis:', workerError);
-             }
+            // Pengaturan workerSrc seharusnya sudah dilakukan di index.html.
+            // Jika tidak, PDF.js mungkin akan gagal atau mencoba memuat dari path default.
+            console.warn('pdfjsLib.GlobalWorkerOptions.workerSrc tidak diatur. Ekstraksi PDF mungkin gagal atau menggunakan path default yang mungkin tidak berfungsi dengan esm.sh. Pastikan ini diatur dengan benar (misalnya, di index.html).');
         }
 
         const pdfDoc = await pdfjsLib.getDocument(typedArray).promise;

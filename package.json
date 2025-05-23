@@ -15,8 +15,7 @@
     "recharts": "^2.15.3",
     "react-markdown": "^10.1.0",
     "@google/genai": "^1.0.1",
-    "pdfjs-dist": "4.5.136",
-    "pdfjs-dist/build/pdf.worker.min.js": "latest"
+    "pdfjs-dist": "4.5.136"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
