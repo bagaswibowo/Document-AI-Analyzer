@@ -170,7 +170,7 @@ const App: React.FC = () => {
       </div>
       
       <footer className="text-center p-4 text-sm text-gray-400 border-t border-slate-700 mt-auto">
-        Powered by Gemini & React. &copy; {new Date().getFullYear()}
+        Copyright &copy; {new Date().getFullYear()}
       </footer>
     </div>
   );
