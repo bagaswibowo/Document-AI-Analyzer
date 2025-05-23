@@ -1,0 +1,6 @@
+{
+  "name": "Gemini Data Analyzer",
+  "description": "An application to automatically analyze data from CSV files, provide insights, and answer questions using Gemini API.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
