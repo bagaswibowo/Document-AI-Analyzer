@@ -16,44 +16,39 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
 
   const handleFetchInsights = async () => {
     setError(null);
-    // setInsights(null); // Keep old insights visible while loading new ones for better UX
     try {
       const result = await onGenerateInsights();
-      setInsights(result);
+      // Check if result indicates an error from the service itself (e.g. API key issue)
+      if (result.startsWith("Error:") || result.startsWith("Gagal")) {
+          setError(result);
+          setInsights(null);
+      } else {
+          setInsights(result);
+      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      setError(`Failed to generate insights: ${errorMessage}`);
-      // Do not set insights to error message here, keep previous insights or show error separately
+      setError(`Gagal menghasilkan wawasan: ${errorMessage}`);
     }
   };
   
-  // User may want to re-generate insights for the same data, so auto-fetch might not be ideal.
-  // Removed auto-fetch on mount.
-  // useEffect(() => {
-  //   if (!insights && !isLoading) { 
-  //     // handleFetchInsights(); 
-  //   }
-  // }, [onGenerateInsights, insights, isLoading]);
-
-
   return (
-    <Card title="AI Powered Insights" icon={SparklesIcon}>
+    <Card title="Wawasan Berbasis AI (Data Tabular)" icon={SparklesIcon}>
       <button
         onClick={handleFetchInsights}
         disabled={isLoading}
         className="w-full sm:w-auto mb-6 px-8 py-3 bg-primary-600 text-white font-semibold rounded-lg shadow-md hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50 transform hover:scale-105"
         aria-live="polite"
-        aria-label="Generate AI powered insights from the data"
+        aria-label="Hasilkan wawasan berbasis AI dari data tabular"
       >
         {isLoading ? (
           <>
             <Spinner size="sm" color="text-white" />
-            <span className="ml-3">Generating Insights...</span>
+            <span className="ml-3">Menghasilkan Wawasan...</span>
           </>
         ) : (
           <>
             <LightBulbIcon className="h-6 w-6 mr-2" />
-            Generate Insights
+            Hasilkan Wawasan
           </>
         )}
       </button>
@@ -88,8 +83,8 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
       {!insights && !isLoading && !error && (
          <div className="text-center text-slate-400 py-10 bg-slate-750 rounded-lg shadow-inner">
             <SparklesIcon className="h-16 w-16 mx-auto mb-4 text-primary-500 opacity-60" />
-            <p className="text-lg">Click the button above to generate data insights using AI.</p>
-            <p className="text-sm text-slate-500 mt-1">Discover patterns, anomalies, and interesting observations in your dataset.</p>
+            <p className="text-lg">Klik tombol di atas untuk menghasilkan wawasan data menggunakan AI.</p>
+            <p className="text-sm text-slate-500 mt-1">Temukan pola, anomali, dan observasi menarik dalam dataset Anda.</p>
           </div>
       )}
     </Card>

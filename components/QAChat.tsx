@@ -3,15 +3,27 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../types';
 import { Card } from './common/Card';
 import { Spinner } from './common/Spinner';
-import { PaperAirplaneIcon, UserCircleIcon, CpuChipIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { PaperAirplaneIcon, UserCircleIcon, CpuChipIcon, ChatBubbleLeftRightIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import ReactMarkdown from 'react-markdown';
+import type { AppMode } from '../App';
 
 interface QAChatProps {
   onQuery: (question: string) => Promise<string>;
   isLoading: boolean;
+  currentMode: AppMode;
+  documentSummary?: string | null;
+  processedTextContent?: string | null; // To check if content is available for documentQa mode
+  fileName?: string; // For tabular data filename
 }
 
-export const QAChat: React.FC<QAChatProps> = ({ onQuery, isLoading }) => {
+export const QAChat: React.FC<QAChatProps> = ({ 
+    onQuery, 
+    isLoading, 
+    currentMode, 
+    documentSummary,
+    processedTextContent,
+    fileName 
+}) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState<string>('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -25,7 +37,13 @@ export const QAChat: React.FC<QAChatProps> = ({ onQuery, isLoading }) => {
 
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+  }, [currentMode]); // Refocus when mode changes
+
+  // Clear messages if the context (data/document) changes
+  useEffect(() => {
+    setMessages([]);
+  }, [currentMode, fileName, processedTextContent]);
+
 
   const handleSendMessage = async () => {
     if (inputValue.trim() === '') return;
@@ -41,7 +59,7 @@ export const QAChat: React.FC<QAChatProps> = ({ onQuery, isLoading }) => {
     setInputValue('');
 
     try {
-      const aiResponseText = await onQuery(currentInput); // Use currentInput as inputValue is cleared
+      const aiResponseText = await onQuery(currentInput);
       const aiMessage: ChatMessage = {
         id: Date.now().toString() + '_ai',
         sender: 'ai',
@@ -54,22 +72,51 @@ export const QAChat: React.FC<QAChatProps> = ({ onQuery, isLoading }) => {
       const aiErrorMessage: ChatMessage = {
         id: Date.now().toString() + '_ai_error',
         sender: 'ai',
-        text: `Sorry, I encountered an error: ${errorMessage}`,
+        text: `Maaf, terjadi kesalahan: ${errorMessage}`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiErrorMessage]);
     }
   };
 
+  const cardTitle = currentMode === 'dataAnalysis' 
+    ? `Tanya Jawab Data: ${fileName || 'Dataset Anda'}`
+    : "Tanya Jawab Dokumen/Teks";
+  
+  const placeholderText = currentMode === 'dataAnalysis'
+    ? "Tanya tentang data Anda... (mis. 'rata-rata penjualan')"
+    : "Tanya tentang konten dokumen/teks ini...";
+
+  const initialMessage = currentMode === 'dataAnalysis'
+    ? { text: "Ajukan pertanyaan tentang dataset Anda.", example: "Contoh: 'Berapa nilai rata-rata di kolom \"Penjualan\"?'" }
+    : { text: "Ajukan pertanyaan tentang konten yang telah Anda berikan.", example: "Contoh: 'Apa poin utama dari teks ini?'" };
+
+
   return (
-    <Card title="Ask Questions About Your Data" icon={ChatBubbleLeftRightIcon}>
-      <div className="flex flex-col h-[calc(70vh - 100px)] min-h-[400px] max-h-[600px] bg-slate-750 rounded-lg shadow-inner overflow-hidden">
+    <Card title={cardTitle} icon={ChatBubbleLeftRightIcon}>
+      {currentMode === 'documentQa' && documentSummary && (
+        <div className="mb-4 p-4 bg-slate-700 rounded-lg shadow">
+          <h3 className="text-lg font-semibold text-primary-400 mb-2 flex items-center">
+            <DocumentMagnifyingGlassIcon className="h-6 w-6 mr-2"/>
+            Ringkasan Konten
+          </h3>
+          <div className="prose prose-sm prose-invert max-w-none max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-700">
+             <ReactMarkdown
+                components={{
+                    p: ({node, ...props}) => <p className="text-sm text-slate-300 my-1" {...props} />,
+                    ul: ({node, ...props}) => <ul className="list-disc list-outside ml-4 text-sm text-slate-300 my-1 space-y-0.5" {...props} />,
+                }}
+             >{documentSummary}</ReactMarkdown>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col h-[calc(65vh - 100px)] min-h-[350px] max-h-[550px] bg-slate-750 rounded-lg shadow-inner overflow-hidden">
         <div className="flex-grow p-4 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-750">
           {messages.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center h-full text-slate-400">
               <ChatBubbleLeftRightIcon className="h-16 w-16 mb-4 opacity-50" />
-              <p className="text-lg">Ask questions about your dataset.</p>
-              <p className="text-sm">e.g., "What is the average value in the 'Sales' column?"</p>
+              <p className="text-lg">{initialMessage.text}</p>
+              <p className="text-sm">{initialMessage.example}</p>
             </div>
           )}
           {messages.map((msg) => (
@@ -87,7 +134,7 @@ export const QAChat: React.FC<QAChatProps> = ({ onQuery, isLoading }) => {
                     <CpuChipIcon className="h-5 w-5 mr-2 flex-shrink-0 text-primary-400" />
                   )}
                   <span className={`text-xs font-semibold ${msg.sender === 'user' ? 'text-primary-100' : 'text-slate-300'}`}>
-                    {msg.sender === 'user' ? 'You' : 'AI Assistant'}
+                    {msg.sender === 'user' ? 'Anda' : 'Asisten AI'}
                   </span>
                 </div>
                  <ReactMarkdown 
@@ -101,7 +148,7 @@ export const QAChat: React.FC<QAChatProps> = ({ onQuery, isLoading }) => {
                         strong: ({node, ...props}) => <strong className="font-medium" {...props} />,
                     }}
                  >{msg.text}</ReactMarkdown>
-                <p className="text-xs text-slate-400 mt-2 text-right">{msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                <p className="text-xs text-slate-400 mt-2 text-right">{msg.timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
               </div>
             </div>
           ))}
@@ -109,7 +156,7 @@ export const QAChat: React.FC<QAChatProps> = ({ onQuery, isLoading }) => {
             <div className="flex justify-start">
                <div className="max-w-xs lg:max-w-md px-5 py-3 rounded-xl shadow-md bg-slate-600 text-slate-100 rounded-bl-none">
                   <div className="flex items-center">
-                    <Spinner size="sm" color="text-primary-400" /> <span className="ml-3 text-sm">AI is thinking...</span>
+                    <Spinner size="sm" color="text-primary-400" /> <span className="ml-3 text-sm">AI sedang berpikir...</span>
                   </div>
                </div>
             </div>
@@ -123,16 +170,16 @@ export const QAChat: React.FC<QAChatProps> = ({ onQuery, isLoading }) => {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask about your data... (e.g., 'average sales')"
+              placeholder={placeholderText}
               className="flex-grow p-3 bg-slate-600 border border-slate-500 rounded-lg text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all duration-150 shadow-sm"
               disabled={isLoading}
-              aria-label="Type your question about the data"
+              aria-label="Ketik pertanyaan Anda"
             />
             <button
               type="submit"
               disabled={isLoading || inputValue.trim() === ''}
               className="p-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
-              aria-label={isLoading ? "Sending question" : "Send question"}
+              aria-label={isLoading ? "Mengirim pertanyaan" : "Kirim pertanyaan"}
             >
               {isLoading ? <Spinner size="sm" color="text-white" /> : <PaperAirplaneIcon className="h-6 w-6" />}
             </button>

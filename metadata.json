@@ -1,6 +1,6 @@
 {
-  "name": "Gemini Data Analyzer",
-  "description": "An application to automatically analyze data from CSV files, provide insights, and answer questions using Gemini API.",
+  "name": "Penganalisis Data & Dokumen Gemini",
+  "description": "Aplikasi untuk menganalisis data dari file CSV/Excel/TSV, meringkas dokumen (PDF/DOCX/TXT) atau teks, memberikan wawasan, dan menjawab pertanyaan menggunakan Gemini API.",
   "requestFramePermissions": [],
   "prompt": ""
 }

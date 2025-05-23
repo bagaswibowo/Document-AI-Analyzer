@@ -52,8 +52,8 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
         if (!colInfo || !colInfo.stats.valueCounts) return null;
         return Object.entries(colInfo.stats.valueCounts)
           .map(([name, value]) => ({ name, value }))
-          .sort((a,b) => b.value - a.value) // Sort for better pie/doughnut display
-          .slice(0, 10); // Limit categories for pie/doughnut for readability
+          .sort((a,b) => b.value - a.value) 
+          .slice(0, 10); 
       }
       
       if (!selectedXColumn || (chartType !== 'bar' && !selectedYColumn)) return null;
@@ -64,17 +64,17 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
           [selectedXColumn]: row[selectedXColumn],
           [selectedYColumn]: typeof row[selectedYColumn] === 'string' ? parseFloat(row[selectedYColumn] as string) : row[selectedYColumn]
         })).filter(item => item[selectedYColumn] !== null && !isNaN(Number(item[selectedYColumn])));
-      } else if (selectedXColumn && chartType === 'bar') { // Single column bar chart (histogram like or categorical)
+      } else if (selectedXColumn && chartType === 'bar') { 
         const colInfo = data.columnInfos.find(c => c.name === selectedXColumn);
         if (colInfo?.type === 'number') { 
             const values = data.rows.map(r => r[selectedXColumn] as number).filter(v => typeof v === 'number' && !isNaN(v));
             if (values.length === 0) return null;
             const min = Math.min(...values);
             const max = Math.max(...values);
-            const numBins = Math.min(10, Math.floor(Math.sqrt(values.length))); // Sturges' formula or sqrt(N) often used
+            const numBins = Math.min(10, Math.floor(Math.sqrt(values.length)));
             if (numBins <=0 || min === max) return [{name: String(min), value: values.length}];
 
-            const binSize = (max - min) / numBins || 1; // Avoid division by zero if max === min and numBins > 0
+            const binSize = (max - min) / numBins || 1; 
             
             const hist: Record<string, number> = {};
             for(let i=0; i < numBins; i++) {
@@ -82,16 +82,14 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
               const binEnd = min + (i+1) * binSize;
               hist[`${binStart.toFixed(1)}-${binEnd.toFixed(1)}`] = 0;
             }
-             // Ensure the last bin includes the max value
             const lastBinKey = Object.keys(hist)[numBins-1];
-            if(!lastBinKey && numBins === 1) { // Special case for single bin
+            if(!lastBinKey && numBins === 1) { 
                  hist[`${min.toFixed(1)}-${max.toFixed(1)}`] = 0;
             }
 
-
             values.forEach(v => {
                 let binIndex = Math.floor((v - min) / binSize);
-                binIndex = Math.max(0, Math.min(binIndex, numBins - 1)); // Ensure binIndex is within bounds
+                binIndex = Math.max(0, Math.min(binIndex, numBins - 1)); 
                 const binKeys = Object.keys(hist);
                 const binName = binKeys[binIndex];
                 if(binName) hist[binName]++;
@@ -101,19 +99,19 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
             return Object.entries(colInfo.stats.valueCounts)
               .map(([name, value]) => ({ name, value }))
               .sort((a,b) => b.value - a.value)
-              .slice(0,15); // Limit categories for bar chart
+              .slice(0,15); 
         }
       }
     } catch (error) {
-      console.error("Error preparing chart data:", error);
-      return [{ name: "Error", value: 0 }]; // Return something to prevent crash
+      console.error("Kesalahan saat menyiapkan data grafik:", error);
+      return [{ name: "Kesalahan", value: 0 }]; 
     }
     return null;
   }, [data, chartType, selectedXColumn, selectedYColumn, selectedPieColumn]);
 
   const renderChart = () => {
     if (!chartData || chartData.length === 0) {
-      return <p className="text-slate-400 text-center py-12 text-lg">No data to display for current selection, or selection is incomplete. Please adjust column selections or chart type.</p>;
+      return <p className="text-slate-400 text-center py-12 text-lg">Tidak ada data untuk ditampilkan untuk pilihan saat ini, atau pilihan tidak lengkap. Silakan sesuaikan pilihan kolom atau jenis grafik.</p>;
     }
     
     const yAxisDataKey = selectedYColumn || 'value';
@@ -126,8 +124,8 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
         cursor:{ fill: 'rgba(100, 116, 139, 0.1)' }
     };
     const commonAxisProps = {
-        stroke: '#6b7280', // slate-500
-        tickFormatter: (tick: any) => typeof tick === 'number' ? tick.toLocaleString() : tick,
+        stroke: '#6b7280', 
+        tickFormatter: (tick: any) => typeof tick === 'number' ? tick.toLocaleString('id-ID') : tick,
     };
     const commonLegendProps = { wrapperStyle: { color: "#cbd5e1", paddingTop: '10px' }};
 
@@ -204,17 +202,17 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
     if (chartType === 'pie' || chartType === 'doughnut') {
       return (
         <div className="mb-6">
-          <label htmlFor="pieColumn" className="block text-sm font-medium text-slate-300 mb-1">Categorical Column:</label>
+          <label htmlFor="pieColumn" className="block text-sm font-medium text-slate-300 mb-1">Kolom Kategorikal:</label>
           <select
             id="pieColumn"
             value={selectedPieColumn || ''}
             onChange={(e) => setSelectedPieColumn(e.target.value || null)}
             className="w-full p-2.5 bg-slate-600 border border-slate-500 rounded-md text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-            aria-label="Select categorical column for pie or doughnut chart"
+            aria-label="Pilih kolom kategorikal untuk diagram lingkaran atau donat"
           >
-            <option value="">Select Column</option>
+            <option value="">Pilih Kolom</option>
             {categoricalColumns.map(col => <option key={col} value={col}>{col}</option>)}
-             {allColumns.filter(col => !categoricalColumns.includes(col)).map(col => <option key={col} value={col} disabled>{col} (not ideal)</option>)}
+             {allColumns.filter(col => !categoricalColumns.includes(col)).map(col => <option key={col} value={col} disabled>{col} (kurang ideal)</option>)}
           </select>
         </div>
       );
@@ -224,30 +222,30 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
           <label htmlFor="xColumn" className="block text-sm font-medium text-slate-300 mb-1">
-            {chartType === 'bar' && !selectedYColumn ? 'Column for Bars (Categorical/Numerical Bins):' : 'X-Axis Column:'}
+            {chartType === 'bar' && !selectedYColumn ? 'Kolom untuk Bar (Kategorikal/Bin Numerik):' : 'Kolom Sumbu X:'}
           </label>
           <select
             id="xColumn"
             value={selectedXColumn || ''}
             onChange={(e) => setSelectedXColumn(e.target.value || null)}
             className="w-full p-2.5 bg-slate-600 border border-slate-500 rounded-md text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-            aria-label="Select X-axis column"
+            aria-label="Pilih kolom sumbu X"
           >
-            <option value="">Select Column</option>
+            <option value="">Pilih Kolom</option>
             {(chartType === 'scatter' ? numericalColumns : allColumns).map(col => <option key={col} value={col}>{col}</option>)}
           </select>
         </div>
         { (chartType === 'line' || chartType === 'scatter' || (chartType === 'bar' && selectedXColumn && numericalColumns.includes(data.columnInfos.find(c => c.name === selectedXColumn)?.type === 'number' ? selectedXColumn : ''))) && (
           <div>
-            <label htmlFor="yColumn" className="block text-sm font-medium text-slate-300 mb-1">Y-Axis Column (Numerical):</label>
+            <label htmlFor="yColumn" className="block text-sm font-medium text-slate-300 mb-1">Kolom Sumbu Y (Numerik):</label>
             <select
               id="yColumn"
               value={selectedYColumn || ''}
               onChange={(e) => setSelectedYColumn(e.target.value || null)}
               className="w-full p-2.5 bg-slate-600 border border-slate-500 rounded-md text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-              aria-label="Select Y-axis column (numerical)"
+              aria-label="Pilih kolom sumbu Y (numerik)"
             >
-              <option value="">Select Column (Value)</option>
+              <option value="">Pilih Kolom (Nilai)</option>
               {numericalColumns.map(col => <option key={col} value={col}>{col}</option>)}
             </select>
           </div>
@@ -257,11 +255,11 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
   };
   
   const chartTypeOptions: ChartTypeOption[] = [
-    { id: 'bar', name: 'Bar Chart', icon: ChartBarIcon },
-    { id: 'line', name: 'Line Chart', icon: PresentationChartLineIcon },
-    { id: 'pie', name: 'Pie Chart', icon: ChartPieIcon },
-    { id: 'doughnut', name: 'Doughnut Chart', icon: ChartPieIcon },
-    { id: 'scatter', name: 'Scatter Plot', icon: SquaresPlusIcon },
+    { id: 'bar', name: 'Diagram Batang', icon: ChartBarIcon },
+    { id: 'line', name: 'Diagram Garis', icon: PresentationChartLineIcon },
+    { id: 'pie', name: 'Diagram Lingkaran', icon: ChartPieIcon },
+    { id: 'doughnut', name: 'Diagram Donat', icon: ChartPieIcon },
+    { id: 'scatter', name: 'Plot Sebar', icon: SquaresPlusIcon },
     { id: 'histogram', name: 'Histogram', icon: QueueListIcon, disabled: true },
     { id: 'heatmap', name: 'Heatmap', icon: Squares2X2Icon, disabled: true },
     { id: 'boxplot', name: 'Box Plot', icon: ChartBarSquareIcon, disabled: true },
@@ -269,9 +267,9 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
 
 
   return (
-    <Card title="Data Visualization Studio" icon={ChartBarIcon}>
+    <Card title="Studio Visualisasi Data" icon={ChartBarIcon}>
       <div className="mb-6 flex flex-wrap gap-2 items-center">
-        <span className="text-sm font-medium text-slate-400 mr-2">Chart Type:</span>
+        <span className="text-sm font-medium text-slate-400 mr-2">Jenis Grafik:</span>
         {chartTypeOptions.map(ct => (
            <button
             key={ct.id}
@@ -297,7 +295,7 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
       </div>
        {chartTypeOptions.find(ct => ct.id === chartType)?.disabled && (
         <p className="text-center text-amber-400 mt-4 text-sm">
-            {chartTypeOptions.find(ct => ct.id === chartType)?.name} is planned for a future update.
+            {chartTypeOptions.find(ct => ct.id === chartType)?.name} direncanakan untuk pembaruan mendatang.
         </p>
       )}
     </Card>
