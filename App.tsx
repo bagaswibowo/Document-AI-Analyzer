@@ -5,7 +5,7 @@ import { DataOverview } from './components/DataOverview';
 import { DataVisualizer } from './components/DataVisualizer';
 import { InsightsGenerator } from './components/InsightsGenerator';
 import { QAChat } from './components/QAChat';
-import { ParsedCsvData, ColumnInfo } from './types';
+import { ParsedCsvData } from './types';
 import { parseCSV, analyzeColumns } from './services/dataAnalysisService';
 import { generateInsights, answerQuestion } from './services/geminiService';
 import { ArrowUpTrayIcon, TableCellsIcon, ChartBarIcon, SparklesIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
@@ -94,12 +94,12 @@ const App: React.FC = () => {
   const renderSection = () => {
     if (!parsedData && activeSection !== 'upload') {
       return (
-        <div className="text-center p-8">
-          <ExclamationTriangleIcon className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-          <p className="text-xl text-gray-700">Please upload a CSV file first to access this section.</p>
+        <div className="text-center p-8 bg-slate-700 rounded-xl shadow-lg">
+          <ExclamationTriangleIcon className="h-16 w-16 text-yellow-400 mx-auto mb-6" />
+          <p className="text-xl text-slate-200 mb-6">Please upload a CSV file first to access this section.</p>
           <button
             onClick={() => setActiveSection('upload')}
-            className="mt-4 px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition duration-150"
+            className="mt-4 px-8 py-3 bg-primary-600 text-white font-semibold rounded-lg shadow-md hover:bg-primary-700 transition-all duration-150"
           >
             Go to Upload
           </button>
@@ -124,57 +124,77 @@ const App: React.FC = () => {
   };
   
   const NavButton: React.FC<{ section: ActiveSection; label: string; icon: React.ElementType }> = ({ section, label, icon: Icon }) => (
-    <button
-      onClick={() => setActiveSection(section)}
-      disabled={!parsedData && section !== 'upload'}
-      className={`flex flex-col items-center justify-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-150
-                  ${activeSection === section ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-primary-100 hover:text-primary-700'}
-                  ${!parsedData && section !== 'upload' ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-      <Icon className="h-5 w-5 mb-1" />
-      {label}
-    </button>
+    <li className="flex-1">
+      <button
+        onClick={() => setActiveSection(section)}
+        disabled={!parsedData && section !== 'upload'}
+        className={`w-full h-full flex flex-col items-center justify-center p-1 md:p-2 
+                    focus:outline-none focus:ring-1 focus:ring-primary-500/80 focus:ring-offset-2 focus:ring-offset-slate-800 rounded-md
+                    transition-all duration-150 group
+                    ${activeSection === section 
+                      ? 'text-primary-400 bg-primary-500/10' 
+                      : 'text-slate-400 hover:text-primary-300 hover:bg-slate-700/60'}
+                    ${!parsedData && section !== 'upload' ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}
+        aria-current={activeSection === section ? 'page' : undefined}
+        aria-label={label}
+      >
+        <Icon className={`h-5 w-5 md:h-6 md:w-6 mb-0.5 transition-colors ${activeSection === section ? 'text-primary-400' : 'text-slate-400 group-hover:text-primary-300'}`} />
+        <span className="text-xs truncate w-full text-center max-w-[80px] md:max-w-none">{label}</span>
+      </button>
+    </li>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-gray-100 flex flex-col">
-      <header className="bg-slate-900/80 backdrop-blur-md shadow-lg p-4 sticky top-0 z-50">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+      <header className="bg-slate-800/80 backdrop-blur-md shadow-lg p-4 sticky top-0 z-40">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary-400 to-pink-500">
+          <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-cyan-400">
             Gemini Data Analyzer
           </h1>
         </div>
       </header>
 
       {error && (
-        <div className="bg-red-500 text-white p-4 m-4 rounded-md shadow-md flex justify-between items-center">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-4 text-xl font-bold">&times;</button>
+        <div className="bg-red-600/90 text-white p-4 mx-4 mt-4 rounded-lg shadow-md flex justify-between items-center animate-pulse">
+          <div className="flex items-center">
+            <ExclamationTriangleIcon className="h-6 w-6 mr-3"/>
+            <span>{error}</span>
+          </div>
+          <button 
+            onClick={() => setError(null)} 
+            className="ml-4 text-xl font-bold hover:text-red-200 transition-colors"
+            aria-label="Close error message"
+          >
+            &times;
+          </button>
         </div>
       )}
       
-      <div className="container mx-auto p-2 sm:p-4 flex-grow flex flex-col md:flex-row gap-4">
-        <nav className="md:w-1/5 lg:w-1/6 bg-slate-800/70 backdrop-blur-sm p-3 rounded-lg shadow-md md:sticky md:top-24 self-start">
-          <ul className="space-y-2">
-            <li><NavButton section="upload" label="Upload Data" icon={ArrowUpTrayIcon} /></li>
-            <li><NavButton section="overview" label="Data Overview" icon={TableCellsIcon} /></li>
-            <li><NavButton section="visualize" label="Visualize" icon={ChartBarIcon} /></li>
-            <li><NavButton section="insights" label="AI Insights" icon={SparklesIcon} /></li>
-            <li><NavButton section="qa" label="Q&A Chat" icon={ChatBubbleLeftRightIcon} /></li>
-          </ul>
-        </nav>
-
-        <main className="md:w-4/5 lg:w-5/6 bg-slate-800/70 backdrop-blur-sm p-4 sm:p-6 rounded-lg shadow-md flex-grow">
-          {renderSection()}
-        </main>
+      {/* Scrollable main content area */}
+      <div className="flex-grow overflow-y-auto pb-16 md:pb-20"> {/* Padding for bottom nav height */}
+        <div className="container mx-auto p-4">
+          <main className="w-full bg-slate-800 p-4 sm:p-6 rounded-xl shadow-2xl">
+            {renderSection()}
+          </main>
+        </div>
+        
+        <footer className="text-center p-5 text-sm text-slate-400 border-t border-slate-700 mt-8">
+          &copy; {new Date().getFullYear()} Bagas Wibowo. All Rights Reserved.
+        </footer>
       </div>
-      
-      <footer className="text-center p-4 text-sm text-gray-400 border-t border-slate-700 mt-auto">
-        Copyright &copy; {new Date().getFullYear()}
-      </footer>
+
+      {/* Fixed Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 h-16 md:h-20 bg-slate-800 border-t border-slate-700 shadow-lg z-50">
+        <ul className="flex justify-around items-stretch h-full max-w-screen-md mx-auto px-1 md:px-2">
+          <NavButton section="upload" label="Upload" icon={ArrowUpTrayIcon} />
+          <NavButton section="overview" label="Overview" icon={TableCellsIcon} />
+          <NavButton section="visualize" label="Visualize" icon={ChartBarIcon} />
+          <NavButton section="insights" label="Insights" icon={SparklesIcon} />
+          <NavButton section="qa" label="Q&A Chat" icon={ChatBubbleLeftRightIcon} />
+        </ul>
+      </nav>
     </div>
   );
 };
 
 export default App;
-    

@@ -6,19 +6,24 @@ interface SpinnerProps {
   color?: string; // Tailwind color class e.g. text-blue-500
 }
 
-export const Spinner: React.FC<SpinnerProps> = ({ size = 'md', color = 'text-primary-400' }) => {
+export const Spinner: React.FC<SpinnerProps> = ({ size = 'md', color }) => {
   const sizeClasses = {
     sm: 'h-5 w-5',
     md: 'h-8 w-8',
     lg: 'h-12 w-12',
   };
+  // Default color to primary-400 if not provided, which is suitable for dark themes
+  const spinnerColor = color || 'text-primary-400';
+
 
   return (
     <svg
-      className={`animate-spin ${sizeClasses[size]} ${color}`}
+      className={`animate-spin ${sizeClasses[size]} ${spinnerColor}`}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
+      role="status"
+      aria-label="Loading"
     >
       <circle
         className="opacity-25"
@@ -36,4 +41,3 @@ export const Spinner: React.FC<SpinnerProps> = ({ size = 'md', color = 'text-pri
     </svg>
   );
 };
-    

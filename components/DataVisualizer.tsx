@@ -1,130 +1,199 @@
 
 import React, { useState, useMemo } from 'react';
-import { ParsedCsvData, ColumnInfo, DataRow, ChartData } from '../types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { ParsedCsvData } from '../types';
+import { ChartData } from '../types'; // Ensure ChartData allows nulls if necessary
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
+  LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis 
+} from 'recharts';
 import { Card } from './common/Card';
-import { ChartBarIcon, PresentationChartLineIcon, ChartPieIcon, SquaresPlusIcon } from '@heroicons/react/24/outline';
+import { 
+  ChartBarIcon, PresentationChartLineIcon, ChartPieIcon, SquaresPlusIcon, 
+  QueueListIcon, Squares2X2Icon, ChartBarSquareIcon 
+} from '@heroicons/react/24/outline';
 
 interface DataVisualizerProps {
   data: ParsedCsvData;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82Ca9D'];
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
+
+// Extend ChartType to include 'doughnut'
+type ChartType = 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'histogram' | 'heatmap' | 'boxplot';
+
+interface ChartTypeOption {
+  id: ChartType;
+  name: string;
+  icon: React.ElementType;
+  disabled?: boolean;
+}
 
 export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'scatter'>('bar');
+  const [chartType, setChartType] = useState<ChartType>('bar');
   const [selectedXColumn, setSelectedXColumn] = useState<string | null>(data.headers[0] || null);
   const [selectedYColumn, setSelectedYColumn] = useState<string | null>(
-    data.columnInfos.find(c => c.type === 'number')?.name || null
+    data.columnInfos.find(c => c.type === 'number')?.name || data.headers.find(h => data.columnInfos.find(ci => ci.name === h)?.type === 'number') || null
   );
-   const [selectedPieColumn, setSelectedPieColumn] = useState<string | null>(
-    data.columnInfos.find(c => c.type === 'string')?.name || null
+  const [selectedPieColumn, setSelectedPieColumn] = useState<string | null>(
+    data.columnInfos.find(c => c.type === 'string' || c.type === 'boolean')?.name || data.headers[0] || null
   );
-
 
   const numericalColumns = useMemo(() => data.columnInfos.filter(col => col.type === 'number').map(col => col.name), [data.columnInfos]);
   const categoricalColumns = useMemo(() => data.columnInfos.filter(col => col.type === 'string' || col.type === 'boolean').map(col => col.name), [data.columnInfos]);
   const allColumns = useMemo(() => data.headers, [data.headers]);
 
-
   const chartData = useMemo((): ChartData | null => {
-    if (!selectedXColumn && chartType !== 'pie') return null;
-    if (chartType === 'pie' && !selectedPieColumn) return null;
+    if (!selectedXColumn && !['pie', 'doughnut'].includes(chartType)) return null;
+    if (['pie', 'doughnut'].includes(chartType) && !selectedPieColumn) return null;
 
     try {
-      if (chartType === 'pie' && selectedPieColumn) {
+      if ((chartType === 'pie' || chartType === 'doughnut') && selectedPieColumn) {
         const colInfo = data.columnInfos.find(c => c.name === selectedPieColumn);
         if (!colInfo || !colInfo.stats.valueCounts) return null;
-        return Object.entries(colInfo.stats.valueCounts).map(([name, value]) => ({ name, value }));
+        return Object.entries(colInfo.stats.valueCounts)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a,b) => b.value - a.value) // Sort for better pie/doughnut display
+          .slice(0, 10); // Limit categories for pie/doughnut for readability
       }
       
-      if (!selectedXColumn || (chartType !== 'bar' && chartType !== 'line' && chartType !== 'scatter' && !selectedYColumn)) return null;
-      if((chartType === 'bar' || chartType === 'line' || chartType === 'scatter') && !selectedYColumn) return null;
-
+      if (!selectedXColumn || (chartType !== 'bar' && !selectedYColumn)) return null;
+      if((chartType === 'line' || chartType === 'scatter') && !selectedYColumn) return null;
 
       if (selectedXColumn && selectedYColumn) {
          return data.rows.map(row => ({
           [selectedXColumn]: row[selectedXColumn],
           [selectedYColumn]: typeof row[selectedYColumn] === 'string' ? parseFloat(row[selectedYColumn] as string) : row[selectedYColumn]
-        }));
-      } else if (selectedXColumn && chartType === 'bar') { // Single column bar chart (histogram like)
+        })).filter(item => item[selectedYColumn] !== null && !isNaN(Number(item[selectedYColumn])));
+      } else if (selectedXColumn && chartType === 'bar') { // Single column bar chart (histogram like or categorical)
         const colInfo = data.columnInfos.find(c => c.name === selectedXColumn);
-        if (colInfo?.type === 'number') { //rudimentary histogram
-            const values = data.rows.map(r => r[selectedXColumn] as number).filter(v => typeof v === 'number');
+        if (colInfo?.type === 'number') { 
+            const values = data.rows.map(r => r[selectedXColumn] as number).filter(v => typeof v === 'number' && !isNaN(v));
+            if (values.length === 0) return null;
             const min = Math.min(...values);
             const max = Math.max(...values);
-            const bins = 10;
-            const binSize = (max-min)/bins;
+            const numBins = Math.min(10, Math.floor(Math.sqrt(values.length))); // Sturges' formula or sqrt(N) often used
+            if (numBins <=0 || min === max) return [{name: String(min), value: values.length}];
+
+            const binSize = (max - min) / numBins || 1; // Avoid division by zero if max === min and numBins > 0
+            
             const hist: Record<string, number> = {};
-            for(let i=0; i<bins; i++) hist[`${(min + i*binSize).toFixed(1)}-${(min + (i+1)*binSize).toFixed(1)}`] = 0;
+            for(let i=0; i < numBins; i++) {
+              const binStart = min + i * binSize;
+              const binEnd = min + (i+1) * binSize;
+              hist[`${binStart.toFixed(1)}-${binEnd.toFixed(1)}`] = 0;
+            }
+             // Ensure the last bin includes the max value
+            const lastBinKey = Object.keys(hist)[numBins-1];
+            if(!lastBinKey && numBins === 1) { // Special case for single bin
+                 hist[`${min.toFixed(1)}-${max.toFixed(1)}`] = 0;
+            }
+
+
             values.forEach(v => {
-                const binIndex = Math.floor((v - min) / binSize);
-                const binName = `${(min + binIndex*binSize).toFixed(1)}-${(min + (binIndex+1)*binSize).toFixed(1)}`;
-                if(hist[binName] !== undefined) hist[binName]++; else if(binIndex === bins) hist[Object.keys(hist)[bins-1]]++; // last bin for max value
+                let binIndex = Math.floor((v - min) / binSize);
+                binIndex = Math.max(0, Math.min(binIndex, numBins - 1)); // Ensure binIndex is within bounds
+                const binKeys = Object.keys(hist);
+                const binName = binKeys[binIndex];
+                if(binName) hist[binName]++;
             });
             return Object.entries(hist).map(([name, value]) => ({ name, value }));
-        } else if (colInfo?.stats.valueCounts) { // bar chart for categorical
-            return Object.entries(colInfo.stats.valueCounts).map(([name, value]) => ({ name, value }));
+        } else if (colInfo?.stats.valueCounts) { 
+            return Object.entries(colInfo.stats.valueCounts)
+              .map(([name, value]) => ({ name, value }))
+              .sort((a,b) => b.value - a.value)
+              .slice(0,15); // Limit categories for bar chart
         }
       }
-
-
     } catch (error) {
       console.error("Error preparing chart data:", error);
-      return null;
+      return [{ name: "Error", value: 0 }]; // Return something to prevent crash
     }
     return null;
   }, [data, chartType, selectedXColumn, selectedYColumn, selectedPieColumn]);
 
   const renderChart = () => {
     if (!chartData || chartData.length === 0) {
-      return <p className="text-gray-400 text-center py-8">No data to display for current selection, or selection is incomplete.</p>;
+      return <p className="text-slate-400 text-center py-12 text-lg">No data to display for current selection, or selection is incomplete. Please adjust column selections or chart type.</p>;
     }
+    
+    const yAxisDataKey = selectedYColumn || 'value';
+    const xAxisDataKey = selectedYColumn ? selectedXColumn : 'name';
 
-    const yAxisLabel = selectedYColumn || 'Value';
+    const commonTooltipProps = {
+        contentStyle: { backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '0.375rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' },
+        itemStyle: { color: '#d1d5db' },
+        labelStyle: { color: '#9ca3af', fontWeight: 'bold' },
+        cursor:{ fill: 'rgba(100, 116, 139, 0.1)' }
+    };
+    const commonAxisProps = {
+        stroke: '#6b7280', // slate-500
+        tickFormatter: (tick: any) => typeof tick === 'number' ? tick.toLocaleString() : tick,
+    };
+    const commonLegendProps = { wrapperStyle: { color: "#cbd5e1", paddingTop: '10px' }};
 
     return (
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer width="100%" height={450}>
         {chartType === 'bar' && selectedXColumn && (
-          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-            <XAxis dataKey={selectedYColumn ? selectedXColumn : 'name'} stroke="#9CA3AF" />
-            <YAxis stroke="#9CA3AF" label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill:"#9CA3AF" }} />
-            <Tooltip contentStyle={{ backgroundColor: '#2D3748', border: 'none', borderRadius: '0.375rem' }} itemStyle={{ color: '#E2E8F0' }} labelStyle={{ color: '#CBD5E0' }}/>
-            <Legend wrapperStyle={{color: "#E2E8F0"}}/>
-            <Bar dataKey={selectedYColumn || 'value'} fill="#3b82f6" />
+          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 40 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis dataKey={xAxisDataKey} {...commonAxisProps} angle={-25} textAnchor="end" height={60} interval={0}/>
+            <YAxis {...commonAxisProps} label={{ value: yAxisDataKey, angle: -90, position: 'insideLeft', fill:"#9ca3af", style: {textAnchor: 'middle'} }} />
+            <Tooltip {...commonTooltipProps} />
+            <Legend {...commonLegendProps} />
+            <Bar dataKey={yAxisDataKey} fill={COLORS[0]} radius={[4, 4, 0, 0]} />
           </BarChart>
         )}
         {chartType === 'line' && selectedXColumn && selectedYColumn && (
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-            <XAxis dataKey={selectedXColumn} stroke="#9CA3AF" />
-            <YAxis stroke="#9CA3AF" label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill:"#9CA3AF" }} />
-            <Tooltip contentStyle={{ backgroundColor: '#2D3748', border: 'none', borderRadius: '0.375rem' }} itemStyle={{ color: '#E2E8F0' }} labelStyle={{ color: '#CBD5E0' }}/>
-            <Legend wrapperStyle={{color: "#E2E8F0"}}/>
-            <Line type="monotone" dataKey={selectedYColumn} stroke="#3b82f6" activeDot={{ r: 8 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis dataKey={selectedXColumn} {...commonAxisProps} />
+            <YAxis {...commonAxisProps} label={{ value: selectedYColumn, angle: -90, position: 'insideLeft', fill:"#9ca3af", style: {textAnchor: 'middle'} }} />
+            <Tooltip {...commonTooltipProps} />
+            <Legend {...commonLegendProps} />
+            <Line type="monotone" dataKey={selectedYColumn} stroke={COLORS[0]} strokeWidth={2} activeDot={{ r: 8, fill: COLORS[0], stroke: '#fff', strokeWidth: 2 }} dot={{r:4, fill:COLORS[0]}}/>
           </LineChart>
         )}
-        {chartType === 'pie' && selectedPieColumn && (
-          <PieChart>
-            <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} fill="#3b82f6" label>
+        {(chartType === 'pie' || chartType === 'doughnut') && selectedPieColumn && (
+          <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+            <Pie 
+              data={chartData} 
+              dataKey="value" 
+              nameKey="name" 
+              cx="50%" 
+              cy="50%" 
+              innerRadius={chartType === 'doughnut' ? 60 : 0} 
+              outerRadius={120} 
+              fill={COLORS[0]} 
+              labelLine={false}
+              label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
+                const RADIAN = Math.PI / 180;
+                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                const x = cx + (radius + 10) * Math.cos(-midAngle * RADIAN);
+                const y = cy + (radius + 10) * Math.sin(-midAngle * RADIAN);
+                return (percent * 100) > 3 ? (
+                  <text x={x} y={y} fill="#cbd5e1" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px">
+                    {`${name} (${(percent * 100).toFixed(0)}%)`}
+                  </text>
+                ) : null;
+              }}
+            >
               {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#1f2937" strokeWidth={1}/>
               ))}
             </Pie>
-            <Tooltip contentStyle={{ backgroundColor: '#2D3748', border: 'none', borderRadius: '0.375rem' }} itemStyle={{ color: '#E2E8F0' }} labelStyle={{ color: '#CBD5E0' }}/>
-            <Legend wrapperStyle={{color: "#E2E8F0"}} />
+            <Tooltip {...commonTooltipProps} />
+            <Legend {...commonLegendProps} layout="horizontal" verticalAlign="bottom" align="center"/>
           </PieChart>
         )}
         {chartType === 'scatter' && selectedXColumn && selectedYColumn && (
-           <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
-            <XAxis type="number" dataKey={selectedXColumn} name={selectedXColumn} stroke="#9CA3AF" />
-            <YAxis type="number" dataKey={selectedYColumn} name={selectedYColumn} stroke="#9CA3AF" label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill:"#9CA3AF" }}/>
-            <ZAxis range={[100]} /> {/* Optional: for bubble size if a Z-axis column is selected */}
-            <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: '#2D3748', border: 'none', borderRadius: '0.375rem' }} itemStyle={{ color: '#E2E8F0' }} labelStyle={{ color: '#CBD5E0' }}/>
-            <Legend wrapperStyle={{color: "#E2E8F0"}}/>
-            <Scatter name={`${selectedXColumn} vs ${selectedYColumn}`} data={chartData} fill="#3b82f6" />
+           <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis type="number" dataKey={selectedXColumn} name={selectedXColumn} {...commonAxisProps} domain={['dataMin', 'dataMax']}/>
+            <YAxis type="number" dataKey={selectedYColumn} name={selectedYColumn} {...commonAxisProps} label={{ value: selectedYColumn, angle: -90, position: 'insideLeft', fill:"#9ca3af", style: {textAnchor: 'middle'} }} domain={['dataMin', 'dataMax']}/>
+            <ZAxis range={[50, 200]} />
+            <Tooltip {...commonTooltipProps} />
+            <Legend {...commonLegendProps} />
+            <Scatter name={`${selectedXColumn} vs ${selectedYColumn}`} data={chartData} fill={COLORS[0]} shape="circle" />
           </ScatterChart>
         )}
       </ResponsiveContainer>
@@ -132,47 +201,53 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
   };
 
   const renderColumnSelectors = () => {
-    if (chartType === 'pie') {
+    if (chartType === 'pie' || chartType === 'doughnut') {
       return (
-        <div className="mb-4">
-          <label htmlFor="pieColumn" className="block text-sm font-medium text-gray-300 mb-1">Categorical Column for Pie Chart:</label>
+        <div className="mb-6">
+          <label htmlFor="pieColumn" className="block text-sm font-medium text-slate-300 mb-1">Categorical Column:</label>
           <select
             id="pieColumn"
             value={selectedPieColumn || ''}
             onChange={(e) => setSelectedPieColumn(e.target.value || null)}
-            className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-gray-100 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full p-2.5 bg-slate-600 border border-slate-500 rounded-md text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+            aria-label="Select categorical column for pie or doughnut chart"
           >
             <option value="">Select Column</option>
             {categoricalColumns.map(col => <option key={col} value={col}>{col}</option>)}
+             {allColumns.filter(col => !categoricalColumns.includes(col)).map(col => <option key={col} value={col} disabled>{col} (not ideal)</option>)}
           </select>
         </div>
       );
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
-          <label htmlFor="xColumn" className="block text-sm font-medium text-gray-300 mb-1">X-Axis Column:</label>
+          <label htmlFor="xColumn" className="block text-sm font-medium text-slate-300 mb-1">
+            {chartType === 'bar' && !selectedYColumn ? 'Column for Bars (Categorical/Numerical Bins):' : 'X-Axis Column:'}
+          </label>
           <select
             id="xColumn"
             value={selectedXColumn || ''}
             onChange={(e) => setSelectedXColumn(e.target.value || null)}
-            className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-gray-100 focus:ring-primary-500 focus:border-primary-500"
+            className="w-full p-2.5 bg-slate-600 border border-slate-500 rounded-md text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+            aria-label="Select X-axis column"
           >
             <option value="">Select Column</option>
             {(chartType === 'scatter' ? numericalColumns : allColumns).map(col => <option key={col} value={col}>{col}</option>)}
           </select>
         </div>
-        {(chartType === 'line' || chartType === 'scatter' || (chartType === 'bar' && numericalColumns.includes(selectedXColumn || ''))) && (
+        { (chartType === 'line' || chartType === 'scatter' || (chartType === 'bar' && selectedXColumn && numericalColumns.includes(data.columnInfos.find(c => c.name === selectedXColumn)?.type === 'number' ? selectedXColumn : ''))) && (
           <div>
-            <label htmlFor="yColumn" className="block text-sm font-medium text-gray-300 mb-1">Y-Axis Column (Numerical):</label>
+            <label htmlFor="yColumn" className="block text-sm font-medium text-slate-300 mb-1">Y-Axis Column (Numerical):</label>
             <select
               id="yColumn"
               value={selectedYColumn || ''}
               onChange={(e) => setSelectedYColumn(e.target.value || null)}
-              className="w-full p-2 bg-slate-700 border border-slate-600 rounded-md text-gray-100 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full p-2.5 bg-slate-600 border border-slate-500 rounded-md text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+              aria-label="Select Y-axis column (numerical)"
             >
-              <option value="">Select Column</option>
+              <option value="">Select Column (Value)</option>
               {numericalColumns.map(col => <option key={col} value={col}>{col}</option>)}
             </select>
           </div>
@@ -181,25 +256,35 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
     );
   };
   
-  const chartTypes = [
+  const chartTypeOptions: ChartTypeOption[] = [
     { id: 'bar', name: 'Bar Chart', icon: ChartBarIcon },
     { id: 'line', name: 'Line Chart', icon: PresentationChartLineIcon },
     { id: 'pie', name: 'Pie Chart', icon: ChartPieIcon },
+    { id: 'doughnut', name: 'Doughnut Chart', icon: ChartPieIcon },
     { id: 'scatter', name: 'Scatter Plot', icon: SquaresPlusIcon },
+    { id: 'histogram', name: 'Histogram', icon: QueueListIcon, disabled: true },
+    { id: 'heatmap', name: 'Heatmap', icon: Squares2X2Icon, disabled: true },
+    { id: 'boxplot', name: 'Box Plot', icon: ChartBarSquareIcon, disabled: true },
   ];
 
 
   return (
-    <Card title="Data Visualization" icon={ChartBarIcon}>
-      <div className="mb-6 flex flex-wrap gap-2">
-        {chartTypes.map(ct => (
+    <Card title="Data Visualization Studio" icon={ChartBarIcon}>
+      <div className="mb-6 flex flex-wrap gap-2 items-center">
+        <span className="text-sm font-medium text-slate-400 mr-2">Chart Type:</span>
+        {chartTypeOptions.map(ct => (
            <button
             key={ct.id}
-            onClick={() => setChartType(ct.id as 'bar' | 'line' | 'pie' | 'scatter')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center
-                        ${chartType === ct.id ? 'bg-primary-600 text-white' : 'bg-slate-600 text-gray-300 hover:bg-slate-500'}`}
+            onClick={() => !ct.disabled && setChartType(ct.id)}
+            disabled={ct.disabled}
+            className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-150 flex items-center shadow-sm hover:shadow-md
+                        ${chartType === ct.id ? 'bg-primary-600 text-white ring-2 ring-primary-400 ring-offset-2 ring-offset-slate-700' : 
+                         ct.disabled ? 'bg-slate-600 text-slate-500 cursor-not-allowed opacity-70' :
+                         'bg-slate-600 text-slate-300 hover:bg-slate-500 hover:text-slate-100'}`}
+            aria-pressed={chartType === ct.id}
+            aria-label={ct.name}
           >
-            <ct.icon className="h-5 w-5 mr-2" />
+            <ct.icon className={`h-5 w-5 mr-2 ${ct.disabled ? 'text-slate-500' : ''}`} />
             {ct.name}
           </button>
         ))}
@@ -207,10 +292,14 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
       
       {renderColumnSelectors()}
       
-      <div className="mt-6 bg-slate-750 p-4 rounded-lg shadow-inner min-h-[400px] flex items-center justify-center">
+      <div className="mt-6 bg-slate-750 p-4 rounded-lg shadow-inner min-h-[480px] flex items-center justify-center">
         {renderChart()}
       </div>
+       {chartTypeOptions.find(ct => ct.id === chartType)?.disabled && (
+        <p className="text-center text-amber-400 mt-4 text-sm">
+            {chartTypeOptions.find(ct => ct.id === chartType)?.name} is planned for a future update.
+        </p>
+      )}
     </Card>
   );
 };
-    
