@@ -263,9 +263,15 @@ export const parseExcel = async (file: File): Promise<ParsedCsvData> => {
         reject(new Error(`Gagal mem-parsing file Excel: ${error instanceof Error ? error.message : String(error)}`));
       }
     };
-    reader.onerror = () => {
-        console.error("FileReader error while reading Excel file.");
-        reject(new Error("Gagal membaca file Excel dari disk."));
+    reader.onerror = (errEvent) => {
+        const fileReaderError = reader.error;
+        console.error("FileReader error while reading Excel file:", errEvent);
+        console.error("FileReader.error object:", fileReaderError);
+        let detailedMessage = "Gagal membaca file Excel dari disk.";
+        if (fileReaderError) {
+            detailedMessage += ` Detail: ${fileReaderError.name} - ${fileReaderError.message}.`;
+        }
+        reject(new Error(detailedMessage));
     };
     reader.readAsArrayBuffer(file);
   });

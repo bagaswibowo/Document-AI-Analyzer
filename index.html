@@ -36,6 +36,20 @@
       background: #a8a8a8; 
     }
   </style>
+<script>
+  // Polyfill untuk Promise.withResolvers()
+  if (typeof Promise.withResolvers !== 'function') {
+    Promise.withResolvers = function withResolvers() {
+      let resolve, reject;
+      const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      // @ts-ignore
+      return { promise, resolve, reject };
+    };
+  }
+</script>
 <script type="importmap">
 {
   "imports": {
