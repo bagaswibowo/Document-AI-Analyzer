@@ -399,7 +399,7 @@ const App: React.FC = () => {
         className="sticky top-0 z-50 w-full flex items-center justify-between px-4 sm:px-6 py-3 bg-white border-b border-slate-200 shadow-sm"
       >
         <h1 className="text-xl sm:text-2xl font-bold text-blue-600 truncate">
-          Penganalisis & Evaluator Dokumen Gemini
+          Penganalisis & Evaluator Dokumen AI
         </h1>
       </header>
       

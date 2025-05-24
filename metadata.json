@@ -1,6 +1,6 @@
 {
-  "name": "Penganalisis Data & Dokumen Gemini",
-  "description": "Aplikasi untuk menganalisis data dari file CSV/Excel/TSV, meringkas dokumen (PDF/DOCX/TXT) atau teks, memberikan wawasan, dan menjawab pertanyaan menggunakan Gemini API.",
+  "name": "Penganalisis Data & Dokumen AI",
+  "description": "Aplikasi untuk menganalisis data dari file CSV/Excel/TSV, meringkas dokumen (PDF/DOCX/TXT) atau teks, memberikan wawasan, dan menjawab pertanyaan menggunakan AI API.",
   "requestFramePermissions": [],
   "prompt": ""
 }
