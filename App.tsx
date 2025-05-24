@@ -8,7 +8,7 @@ import { QAChat } from './components/QAChat';
 import { DocumentEvaluator } from './components/DocumentEvaluator';
 import { ParsedCsvData } from './types';
 import { analyzeColumns, SupportedCalculation as SupportedCalculationType } from './services/dataAnalysisService';
-import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest, evaluateDocumentWithReferences } from './services/geminiService';
+import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest, evaluateDocumentWithReferences } from './services/aiService';
 import { ToastDisplay, ToastConfig } from './components/common/ToastDisplay';
 
 import {
@@ -329,7 +329,7 @@ const App: React.FC = () => {
     icon: React.ElementType; 
     requiredMode?: AppMode; 
     disabled?: boolean;
-    // No specific icon colors here, will be handled by active/inactive state
+    
   }
 
   const navItems: NavItem[] = useMemo(() => {
@@ -376,13 +376,13 @@ const App: React.FC = () => {
         });
       } else {
         if (activeSection === 'evaluate' && key !== 'evaluate') {
-          // setDocumentEvaluation(null); 
+          
         }
         if (key === 'evaluate' && !processedTextContent) {
           setCurrentMode('documentQa');
         }
         setActiveSection(key);
-        setToastConfig(null); // Clear any existing toast
+        setToastConfig(null); 
       }
     }
   };
@@ -431,7 +431,7 @@ const App: React.FC = () => {
             <button
               key={item.key}
               onClick={() => handleMenuClick(item.key)}
-              disabled={item.disabled} // This still visually disables, toast adds behavior
+              disabled={item.disabled} 
               className={`flex flex-col items-center justify-center p-2 rounded-md w-1/5 text-xs sm:text-sm transition-colors duration-150
                 ${activeSection === item.key 
                   ? 'text-blue-600' 

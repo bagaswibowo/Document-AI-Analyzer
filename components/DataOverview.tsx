@@ -12,7 +12,7 @@ interface DataOverviewProps {
 interface StatCardProps {
   title: string;
   value: string | number;
-  icon: React.ElementType; // Heroicon component
+  icon: React.ElementType; 
   iconColorClass?: string;
 }
 

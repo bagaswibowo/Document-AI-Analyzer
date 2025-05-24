@@ -31,7 +31,7 @@ interface ModeConfig {
   key: InputMode;
   title: string;
   icon: React.ElementType;
-  iconColorClass: string; // Added for colorful section icons
+  iconColorClass: string; 
   description: string;
   fileTypesText?: string;
   submitButtonText: string;
@@ -57,8 +57,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_WORDS = 20000;
-  const MAX_FILE_SIZE_TABULAR = 25 * 1024 * 1024; // 25MB
-  const MAX_FILE_SIZE_DOCUMENT = 25 * 1024 * 1024; // 25MB
+  const MAX_FILE_SIZE_TABULAR = 25 * 1024 * 1024; 
+  const MAX_FILE_SIZE_DOCUMENT = 25 * 1024 * 1024; 
 
   const modeConfigs: ModeConfig[] = [
     {
@@ -185,9 +185,9 @@ export const InputSection: React.FC<InputSectionProps> = ({
         const { headers, rows } = parseCSV(fileText, '\t');
         parsed = { headers, rows, columnInfos: [], rowCount: rows.length, columnCount: headers.length, sampleRows: [], fileName: file.name };
       } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        // Note: parseExcel in dataAnalysisService is a mock. 
-        // For real Excel parsing, a library like SheetJS would be needed.
-        // This implementation currently reads Excel as text and tries to parse as CSV.
+        
+        
+        
         parsed = await parseExcel(file); 
       } else {
         throw new Error("Tipe file tabular tidak didukung.");
@@ -235,11 +235,11 @@ export const InputSection: React.FC<InputSectionProps> = ({
       setIsLoading(true);
       setLoadingMessage("Memproses teks input...");
       setExternalError(null);
-      // Simulate processing for direct text, as Gemini calls happen later
+      
       onDocumentOrTextProcessed(directText, "Teks Langsung");
     } 
-    // setIsLoading(false) is handled within processTabularFile/processDocumentFile 
-    // or in App.tsx for direct text after summarization.
+    
+    
   };
 
   const SelectedFileIconElement = selectedFile ? getFileIconElement(selectedFile.name) : null;

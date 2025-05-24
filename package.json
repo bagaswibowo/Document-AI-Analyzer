@@ -1,5 +1,5 @@
 {
-  "name": "penganalisis-data-&-dokumen-AI",
+  "name": "penganalisis-data-&-dokumen-ai",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -19,7 +19,8 @@
     "@vercel/node": "^5.1.16",
     "cheerio": "^1.0.0",
     "@heroicons/react": "2.2.0",
-    "mammoth": "1.8.0"
+    "mammoth": "1.8.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

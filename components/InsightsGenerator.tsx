@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-// ThemeContext removed
+
 import ReactMarkdown from 'react-markdown';
 import { LightBulbIcon, BeakerIcon } from '@heroicons/react/24/outline'; 
 
@@ -12,7 +12,7 @@ interface InsightsGeneratorProps {
 export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerateInsights, isLoading }) => {
   const [insights, setInsights] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // themeMode and isDarkMode removed
+  
 
   const MarkdownComponents = {
       h1: ({node, ...props}: any) => <h1 className="text-2xl font-bold my-4 text-blue-600 border-b pb-2 border-slate-300" {...props} />,
@@ -28,11 +28,11 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
       code: ({node, inline, className, children, ...props}: any) => {
         const match = /language-(\w+)/.exec(className || '');
         return !inline ? (
-          <pre className={`my-3 p-3 rounded-md bg-slate-100 overflow-x-auto text-sm ${className || ''}`} {...props}>
+          <pre className={`my-3 p-3 rounded-md bg-sky-50 text-sky-900 font-mono overflow-x-auto text-sm ${className || ''}`} {...props}>
             <code className={`language-${match ? match[1] : 'text'}`}>{String(children).replace(/\n$/, '')}</code>
           </pre>
         ) : (
-          <code className="px-1 py-0.5 bg-slate-200 rounded text-sm text-pink-600" {...props}>
+          <code className="px-1 py-0.5 bg-slate-200 rounded text-sm text-pink-600 font-mono" {...props}>
             {children}
           </code>
         );

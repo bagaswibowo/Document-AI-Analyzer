@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ParsedCsvData, ChartData } from '../types';
-// ThemeContext removed
+
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis, AreaChart, Area
@@ -19,14 +19,14 @@ interface DataVisualizerProps {
   data: ParsedCsvData;
 }
 
-const getDefaultColors = () => [ // Always light mode colors
-  '#2563eb', // blue-600
-  '#10b981', // emerald-500
-  '#eab308', // yellow-500
-  '#f97316', // orange-500
-  '#ec4899', // pink-500
-  '#8b5cf6', // violet-500
-  '#3b82f6', // blue-500
+const getDefaultColors = () => [ 
+  '#2563eb', 
+  '#10b981', 
+  '#eab308', 
+  '#f97316', 
+  '#ec4899', 
+  '#8b5cf6', 
+  '#3b82f6', 
 ];
 
 
@@ -39,7 +39,7 @@ interface ChartTypeOption {
 }
 
 export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
-  // themeMode and isDarkMode removed
+  
   const [chartType, setChartType] = useState<ChartType>('bar');
   const [selectedXColumn, setSelectedXColumn] = useState<string | null>(data.headers[0] || null);
   const [selectedYColumn, setSelectedYColumn] = useState<string | null>(
@@ -50,7 +50,7 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
   );
   const [histogramBins, setHistogramBins] = useState<number>(10);
 
-  const COLORS = useMemo(() => getDefaultColors(), []); // No dependency on isDarkMode
+  const COLORS = useMemo(() => getDefaultColors(), []); 
 
   const numericalColumns = useMemo(() => data.columnInfos.filter(col => col.type === 'number').map(col => col.name), [data.columnInfos]);
   const categoricalColumns = useMemo(() => data.columnInfos.filter(col => col.type === 'string' || col.type === 'boolean').map(col => col.name), [data.columnInfos]);

@@ -6,7 +6,7 @@ export interface ToastConfig {
   id: string;
   message: string;
   type: 'info' | 'warning' | 'error' | 'success';
-  duration?: number; // in milliseconds
+  duration?: number; 
   action?: {
     label: string;
     onClick: () => void;
@@ -37,7 +37,7 @@ export const ToastDisplay: React.FC<ToastDisplayProps> = ({ config, onClose }) =
   switch (type) {
     case 'success':
       bgColor = 'bg-green-500';
-      IconComponent = InformationCircleIcon; // Or CheckCircleIcon if you have it
+      IconComponent = InformationCircleIcon; 
       iconColor = 'text-green-100';
       actionButtonClass = 'bg-green-600 hover:bg-green-700';
       break;
@@ -76,7 +76,7 @@ export const ToastDisplay: React.FC<ToastDisplayProps> = ({ config, onClose }) =
           <button
             onClick={() => {
               action.onClick();
-              onClose(); // Close toast after action
+              onClose(); 
             }}
             className={`mt-2 px-3 py-1.5 text-xs font-semibold text-white rounded-md ${actionButtonClass} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-current focus:ring-white`}
           >

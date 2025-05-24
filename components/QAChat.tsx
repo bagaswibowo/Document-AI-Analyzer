@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage } from '../types';
 import type { AppMode } from '../App';
-// ThemeContext removed
+
 import ReactMarkdown from 'react-markdown';
 import { 
   PaperAirplaneIcon, UserIcon, SparklesIcon, ChatBubbleLeftEllipsisIcon, DocumentTextIcon
@@ -28,7 +28,7 @@ export const QAChat: React.FC<QAChatProps> = ({
   const [inputValue, setInputValue] = useState<string>('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  // themeMode and isDarkMode removed
+  
 
   const ChatMarkdownComponents = {
       p: ({node, ...props}: any) => <p className="mb-1 break-words text-sm" {...props} />,
@@ -39,11 +39,11 @@ export const QAChat: React.FC<QAChatProps> = ({
       strong: ({node, ...props}: any) => <strong className="font-semibold text-sky-800 bg-sky-100 px-1 py-0.5 rounded-sm" {...props} />,
       code: ({node, inline, className, children, ...props}: any) => {
         return !inline ? (
-          <pre className={`my-1 p-2 rounded bg-slate-200 overflow-x-auto text-xs ${className || ''}`} {...props}>
+          <pre className={`my-1 p-2 rounded bg-sky-50 text-sky-900 font-mono overflow-x-auto text-xs ${className || ''}`} {...props}>
             <code>{String(children).replace(/\n$/, '')}</code>
           </pre>
         ) : (
-          <code className="px-1 py-0.5 bg-slate-200 rounded text-xs text-pink-600" {...props}>
+          <code className="px-1 py-0.5 bg-slate-200 rounded text-xs text-pink-600 font-mono" {...props}>
             {children}
           </code>
         );
@@ -64,11 +64,11 @@ export const QAChat: React.FC<QAChatProps> = ({
     code: ({node, inline, className, children, ...props}: any) => {
       const match = /language-(\w+)/.exec(className || '');
       return !inline ? (
-        <pre className={`my-2 p-2 rounded-md bg-slate-100 overflow-x-auto text-xs ${className || ''}`} {...props}>
+        <pre className={`my-2 p-2 rounded-md bg-sky-50 text-sky-900 font-mono overflow-x-auto text-xs ${className || ''}`} {...props}>
           <code className={`language-${match ? match[1] : 'text'}`}>{String(children).replace(/\n$/, '')}</code>
         </pre>
       ) : (
-        <code className="px-1 py-0.5 bg-slate-200 rounded text-xs text-pink-600" {...props}>
+        <code className="px-1 py-0.5 bg-slate-200 rounded text-xs text-pink-600 font-mono" {...props}>
           {children}
         </code>
       );

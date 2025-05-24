@@ -6,29 +6,29 @@ import {
     InformationCircleIcon, 
     MagnifyingGlassIcon,
     ArrowUpTrayIcon,
-    DocumentTextIcon as FileIconGeneric, // Fallback icon
-    DocumentDuplicateIcon as DocxFileIcon, // Using this for DOCX/DOC
-    DocumentChartBarIcon as PdfFileIcon, // Using this for PDF
+    DocumentTextIcon as FileIconGeneric, 
+    DocumentDuplicateIcon as DocxFileIcon, 
+    DocumentChartBarIcon as PdfFileIcon, 
     XCircleIcon,
     ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { extractTextFromFile } from '../services/dataAnalysisService';
 
 interface DocumentEvaluatorProps {
-  originalContent: string | null; // Can be null if no global doc loaded
+  originalContent: string | null; 
   onEvaluate: () => void;
-  isLoading: boolean; // Loading for AI evaluation call
+  isLoading: boolean; 
   evaluationResult: string | null;
   sourceIdentifier?: string;
   
-  // Props from App.tsx to handle document processing within evaluator
+  
   onDocumentUploadedAndProcessed: (text: string, sourceName: string, navigateToEvaluation?: boolean) => void;
   setAppIsLoading: (loading: boolean) => void;
   setAppLoadingMessage: (message: string) => void;
   setAppError: (error: string | null) => void;
 }
 
-const MAX_FILE_SIZE_DOCUMENT = 25 * 1024 * 1024; // 25MB
+const MAX_FILE_SIZE_DOCUMENT = 25 * 1024 * 1024; 
 
 export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
   originalContent,
@@ -62,11 +62,11 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
       code: ({node, inline, className, children, ...props}: any) => {
         const match = /language-(\w+)/.exec(className || '');
         return !inline ? (
-          <pre className={`my-3 p-3 rounded-md bg-slate-100 overflow-x-auto text-sm ${className || ''}`} {...props}>
+          <pre className={`my-3 p-3 rounded-md bg-sky-50 text-sky-900 font-mono overflow-x-auto text-sm ${className || ''}`} {...props}>
             <code className={`language-${match ? match[1] : 'text'}`}>{String(children).replace(/\n$/, '')}</code>
           </pre>
         ) : (
-          <code className="px-1 py-0.5 bg-slate-200 rounded text-sm text-pink-600" {...props}>
+          <code className="px-1 py-0.5 bg-slate-200 rounded text-sm text-pink-600 font-mono" {...props}>
             {children}
           </code>
         );
