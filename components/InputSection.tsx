@@ -25,6 +25,7 @@ interface InputSectionProps {
   setExternalError: (error: string | null) => void;
   setIsLoading: (loading: boolean) => void;
   setLoadingMessage: (message: string) => void;
+  onNavigateToGuide: () => void; // Prop baru
 }
 
 interface ModeConfig {
@@ -48,6 +49,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
   setExternalError,
   setIsLoading,
   setLoadingMessage,
+  onNavigateToGuide, // Mengambil prop baru
 }) => {
   const [activeMode, setActiveMode] = useState<InputMode>('tabular');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -185,9 +187,6 @@ export const InputSection: React.FC<InputSectionProps> = ({
         const { headers, rows } = parseCSV(fileText, '\t');
         parsed = { headers, rows, columnInfos: [], rowCount: rows.length, columnCount: headers.length, sampleRows: [], fileName: file.name };
       } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        
-        
-        
         parsed = await parseExcel(file); 
       } else {
         throw new Error("Tipe file tabular tidak didukung.");
@@ -235,11 +234,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
       setIsLoading(true);
       setLoadingMessage("Memproses teks input...");
       setExternalError(null);
-      
       onDocumentOrTextProcessed(directText, "Teks Langsung");
     } 
-    
-    
   };
 
   const SelectedFileIconElement = selectedFile ? getFileIconElement(selectedFile.name) : null;
@@ -379,7 +375,21 @@ export const InputSection: React.FC<InputSectionProps> = ({
         {(activeMode === 'tabular' || activeMode === 'document') && !selectedFile && !isLoading && (
            <div className="mt-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-800 flex items-start space-x-2">
               <InformationCircleIcon className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs">Untuk memulai, silakan pilih atau seret file ke area di atas sesuai dengan tipe yang diinginkan.</p>
+              <p className="text-xs">
+                Untuk memulai, silakan pilih atau seret file ke area di atas sesuai dengan tipe yang diinginkan.
+                {' '}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigateToGuide();
+                  }}
+                  className="font-semibold hover:underline focus:outline-none text-blue-700 hover:text-blue-800"
+                  aria-label="Lihat panduan penggunaan aplikasi"
+                >
+                  Lihat panduan penggunaan.
+                </button>
+              </p>
           </div>
         )}
       </div>

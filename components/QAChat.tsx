@@ -17,40 +17,45 @@ interface QAChatProps {
   sourceIdentifier?: string; 
 }
 
-export const QAChat: React.FC<QAChatProps> = ({ 
-    onQuery, 
-    isLoading, 
-    currentMode, 
-    documentSummary,
-    sourceIdentifier 
-}) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputValue, setInputValue] = useState<string>('');
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  
+// Helper function to generate Markdown components based on sender
+const getCustomChatMarkdownComponents = (isUserMessage: boolean) => ({
+  p: ({ node, ...props }: any) => <p className={`mb-1 break-words text-sm ${isUserMessage ? 'text-white' : 'text-slate-700'}`} {...props} />,
+  ul: ({ node, ...props }: any) => <ul className={`list-disc pl-5 my-1 text-sm ${isUserMessage ? 'text-white' : 'text-slate-700'}`} {...props} />,
+  ol: ({ node, ...props }: any) => <ol className={`list-decimal pl-5 my-1 text-sm ${isUserMessage ? 'text-white' : 'text-slate-700'}`} {...props} />,
+  li: ({ node, ...props }: any) => <li className={`mb-0.5 text-sm ${isUserMessage ? 'text-white' : 'text-slate-700'}`} {...props} />,
+  strong: ({ node, ...props }: any) => (
+    <strong
+      className={`font-semibold ${
+        isUserMessage ? 'text-white' : 'text-sky-800 bg-sky-100 px-1 py-0.5 rounded-sm'
+      }`}
+      {...props}
+    />
+  ),
+  a: ({ node, ...props }: any) => (
+    <a
+      className={`text-sm hover:underline ${
+        isUserMessage ? 'text-blue-200 hover:text-blue-100' : 'text-blue-600 hover:text-blue-500'
+      }`}
+      target="_blank"
+      rel="noopener noreferrer"
+      {...props}
+    />
+  ),
+  code: ({node, inline, className, children, ...props}: any) => {
+    return !inline ? (
+      <pre className={`my-1 p-2 rounded bg-sky-50 text-sky-900 font-mono overflow-x-auto text-xs ${className || ''}`} {...props}>
+        <code>{String(children).replace(/\n$/, '')}</code>
+      </pre>
+    ) : (
+      <code className="px-1 py-0.5 bg-slate-200 rounded text-xs text-pink-600 font-mono" {...props}>
+        {children}
+      </code>
+    );
+  },
+});
 
-  const ChatMarkdownComponents = {
-      p: ({node, ...props}: any) => <p className="mb-1 break-words text-sm" {...props} />,
-      ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-1 text-sm" {...props} />,
-      ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-1 text-sm" {...props} />,
-      li: ({node, ...props}: any) => <li className="mb-0.5 text-sm" {...props} />,
-      a: ({node, ...props}: any) => <a className="text-blue-500 hover:underline text-sm" target="_blank" rel="noopener noreferrer" {...props} />,
-      strong: ({node, ...props}: any) => <strong className="font-semibold text-sky-800 bg-sky-100 px-1 py-0.5 rounded-sm" {...props} />,
-      code: ({node, inline, className, children, ...props}: any) => {
-        return !inline ? (
-          <pre className={`my-1 p-2 rounded bg-sky-50 text-sky-900 font-mono overflow-x-auto text-xs ${className || ''}`} {...props}>
-            <code>{String(children).replace(/\n$/, '')}</code>
-          </pre>
-        ) : (
-          <code className="px-1 py-0.5 bg-slate-200 rounded text-xs text-pink-600 font-mono" {...props}>
-            {children}
-          </code>
-        );
-      },
-  };
-
-  const EnhancedSummaryMarkdownComponents = {
+// Original Markdown components for Document Summary (remains unchanged)
+const EnhancedSummaryMarkdownComponents = {
     h1: ({node, ...props}: any) => <h1 className="text-2xl font-bold my-3 text-blue-600 border-b pb-1 border-slate-300" {...props} />,
     h2: ({node, ...props}: any) => <h2 className="text-xl font-semibold my-2 text-slate-700" {...props} />,
     h3: ({node, ...props}: any) => <h3 className="text-lg font-medium my-1 text-slate-600" {...props} />,
@@ -74,8 +79,21 @@ export const QAChat: React.FC<QAChatProps> = ({
       );
     },
     blockquote: ({node, ...props}: any) => <blockquote className="my-1.5 pl-3 border-l-4 border-slate-300 italic text-slate-600" {...props} />,
-  };
+};
 
+
+export const QAChat: React.FC<QAChatProps> = ({ 
+    onQuery, 
+    isLoading, 
+    currentMode, 
+    documentSummary,
+    sourceIdentifier 
+}) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputValue, setInputValue] = useState<string>('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -185,33 +203,36 @@ export const QAChat: React.FC<QAChatProps> = ({
                 <p className="text-xs">{initialMessageExample}</p>
               </div>
           )}
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[75%] p-2.5 rounded-xl shadow-sm
-                  ${msg.sender === 'user' 
-                    ? 'bg-blue-600 text-white rounded-br-none' 
-                    : 'bg-white text-slate-800 rounded-bl-none border border-slate-200'
-                  }`}
-              >
-                <div className="flex items-center space-x-1.5 mb-1">
-                  {msg.sender === 'user' ? (
-                      <UserIcon className="w-4 h-4 p-0.5 bg-blue-400 text-white rounded-full" />
-                  ) : (
-                      <SparklesIcon className="w-4 h-4 p-0.5 bg-green-400 text-white rounded-full" />
-                  )}
-                  <span className="text-xs font-semibold">
-                      {msg.sender === 'user' ? 'Anda' : 'Asisten AI'}
-                  </span>
+          {messages.map((msg) => {
+            const markdownComponentsForMessage = getCustomChatMarkdownComponents(msg.sender === 'user');
+            return (
+              <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[75%] p-2.5 rounded-xl shadow-sm
+                    ${msg.sender === 'user' 
+                      ? 'bg-blue-600 text-white rounded-br-none' 
+                      : 'bg-white text-slate-800 rounded-bl-none border border-slate-200'
+                    }`}
+                >
+                  <div className="flex items-center space-x-1.5 mb-1">
+                    {msg.sender === 'user' ? (
+                        <UserIcon className="w-4 h-4 p-0.5 bg-blue-400 text-white rounded-full" />
+                    ) : (
+                        <SparklesIcon className="w-4 h-4 p-0.5 bg-green-400 text-white rounded-full" />
+                    )}
+                    <span className={`text-xs font-semibold ${msg.sender === 'user' ? 'text-white' : 'text-slate-700'}`}>
+                        {msg.sender === 'user' ? 'Anda' : 'Asisten AI'}
+                    </span>
+                  </div>
+                  <div className={`prose prose-sm max-w-none message-content ${msg.sender === 'user' ? 'prose-invert' : ''}`}>
+                    <ReactMarkdown components={markdownComponentsForMessage}>{msg.text}</ReactMarkdown>
+                  </div>
+                  <p className={`text-right mt-1 text-xs ${msg.sender === 'user' ? 'text-blue-200' : 'text-slate-500'}`}>
+                    {msg.timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
-                <div className="prose prose-sm max-w-none message-content">
-                  <ReactMarkdown components={ChatMarkdownComponents}>{msg.text}</ReactMarkdown>
-                </div>
-                <p className={`text-right mt-1 text-xs ${msg.sender === 'user' ? 'text-blue-200' : 'text-slate-500'}`}>
-                  {msg.timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                </p>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {isLoading && messages[messages.length -1]?.sender === 'user' && (
             <div className="flex justify-start">
               <div className="p-2.5 rounded-xl bg-white text-slate-800 shadow-sm rounded-bl-none inline-flex items-center space-x-2 border border-slate-200">

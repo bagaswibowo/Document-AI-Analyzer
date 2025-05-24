@@ -6,6 +6,7 @@ import { DataVisualizer } from './components/DataVisualizer';
 import { InsightsGenerator } from './components/InsightsGenerator';
 import { QAChat } from './components/QAChat';
 import { DocumentEvaluator } from './components/DocumentEvaluator';
+import { HowToUseGuide } from './components/HowToUseGuide';
 import { ParsedCsvData } from './types';
 import { analyzeColumns, SupportedCalculation as SupportedCalculationType } from './services/dataAnalysisService';
 import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest, evaluateDocumentWithReferences } from './services/aiService';
@@ -20,9 +21,10 @@ import {
   ExclamationTriangleIcon,
   XCircleIcon,
   ClipboardDocumentCheckIcon,
+  // BookOpenIcon, // Dihapus dari sini karena navigasi bawah dihilangkan
 } from '@heroicons/react/24/outline';
 
-type ActiveSection = 'input' | 'overview' | 'visualize' | 'insights' | 'qa' | 'evaluate';
+type ActiveSection = 'input' | 'overview' | 'visualize' | 'insights' | 'qa' | 'evaluate' | 'howToUse';
 export type AppMode = 'dataAnalysis' | 'documentQa';
 export type ActiveInputType = 'tabular' | 'document' | 'directText';
 
@@ -78,9 +80,32 @@ const App: React.FC = () => {
   const [documentEvaluation, setDocumentEvaluation] = useState<string | null>(null);
   const [evaluationLoading, setEvaluationLoading] = useState<boolean>(false);
   const [toastConfig, setToastConfig] = useState<ToastConfig | null>(null);
+  const [previousActiveSection, setPreviousActiveSection] = useState<ActiveSection>('input');
 
 
   const dataSummaryForAI = useMemo(() => formatDataSummaryForAI(parsedData), [parsedData]);
+
+  useEffect(() => {
+    const howToUseToastDismissed = localStorage.getItem('howToUseToastDismissed');
+    if (!howToUseToastDismissed) {
+      setToastConfig({
+        id: 'howToUseInitialToast',
+        message: "Baru di sini? Lihat panduan cara menggunakan aplikasi ini!",
+        type: 'info',
+        duration: 10000, 
+        action: {
+          label: 'Lihat Panduan',
+          onClick: () => {
+            setPreviousActiveSection(activeSection);
+            setActiveSection('howToUse');
+            localStorage.setItem('howToUseToastDismissed', 'true');
+            setToastConfig(null);
+          }
+        }
+      });
+    }
+  }, []);
+
 
   const resetAppStateForNewInput = (keepCurrentMode: boolean = false) => {
     setParsedData(null);
@@ -281,6 +306,10 @@ const App: React.FC = () => {
                   setExternalError={setError}
                   setIsLoading={setIsLoading}
                   setLoadingMessage={setLoadingMessage}
+                  onNavigateToGuide={() => {
+                    setPreviousActiveSection('input'); 
+                    setActiveSection('howToUse');
+                  }}
                 />;
       case 'overview':
         return currentMode === 'dataAnalysis' && parsedData ? <DataOverview data={parsedData} /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
@@ -310,6 +339,8 @@ const App: React.FC = () => {
                   setAppLoadingMessage={setLoadingMessage}
                   setAppError={setError}
                />;
+      case 'howToUse': 
+        return <HowToUseGuide onBack={() => setActiveSection(previousActiveSection || 'input')} />;
       default:
         return <InputSection 
                   onTabularFileProcessed={handleTabularFileProcessed} 
@@ -319,6 +350,10 @@ const App: React.FC = () => {
                   setExternalError={setError}
                   setIsLoading={setIsLoading}
                   setLoadingMessage={setLoadingMessage}
+                  onNavigateToGuide={() => {
+                    setPreviousActiveSection('input');
+                    setActiveSection('howToUse');
+                  }}
                 />;
     }
   };
@@ -329,7 +364,6 @@ const App: React.FC = () => {
     icon: React.ElementType; 
     requiredMode?: AppMode; 
     disabled?: boolean;
-    
   }
 
   const navItems: NavItem[] = useMemo(() => {
@@ -340,10 +374,12 @@ const App: React.FC = () => {
       { key: 'insights', label: "Wawasan", icon: LightBulbIcon, requiredMode: 'dataAnalysis' },
       { key: 'qa', label: "Tanya Jawab", icon: ChatBubbleLeftEllipsisIcon },
       { key: 'evaluate', label: "Evaluasi", icon: ClipboardDocumentCheckIcon }, 
+      // { key: 'howToUse', label: "Panduan", icon: BookOpenIcon }, // Dihapus dari navigasi bawah
     ];
 
     return baseItems.map((item): NavItem => {
       let isDisabled = false;
+      // 'howToUse' tidak lagi di sini, jadi logika pengecualiannya tidak diperlukan
       if (item.key !== 'input' && item.key !== 'evaluate') { 
           if (item.requiredMode === 'dataAnalysis') {
               if (!parsedData || currentMode !== 'dataAnalysis') isDisabled = true;
@@ -375,15 +411,25 @@ const App: React.FC = () => {
           }
         });
       } else {
-        if (activeSection === 'evaluate' && key !== 'evaluate') {
-          
+        if (key !== activeSection) {
+             setPreviousActiveSection(activeSection);
+        }
+        // Logika untuk howToUse tidak lagi diperlukan di sini karena tidak ada di navItems
+        if (activeSection === 'evaluate' && key !== 'evaluate' && key !== 'howToUse') {
+          // Logic for navigating away from evaluate
         }
         if (key === 'evaluate' && !processedTextContent) {
-          setCurrentMode('documentQa');
+          setCurrentMode('documentQa'); 
         }
         setActiveSection(key);
         setToastConfig(null); 
       }
+    } else if (key === 'howToUse') { // Penanganan manual jika howToUse dipanggil (misal dari toast/link)
+        if (key !== activeSection) {
+            setPreviousActiveSection(activeSection);
+        }
+        setActiveSection('howToUse');
+        setToastConfig(null);
     }
   };
 
@@ -392,7 +438,12 @@ const App: React.FC = () => {
       {toastConfig && (
           <ToastDisplay
             config={toastConfig}
-            onClose={() => setToastConfig(null)}
+            onClose={() => {
+                if(toastConfig.id === 'howToUseInitialToast'){
+                    localStorage.setItem('howToUseToastDismissed', 'true');
+                }
+                setToastConfig(null);
+            }}
           />
       )}
       <header 
@@ -426,24 +477,25 @@ const App: React.FC = () => {
       <footer 
         className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-top"
       >
-        <nav className="flex justify-around items-center h-16 max-w-2xl mx-auto px-2">
+        <nav className="grid grid-cols-6 items-center h-16 max-w-2xl mx-auto px-1">
           {navItems.map(item => (
             <button
               key={item.key}
               onClick={() => handleMenuClick(item.key)}
               disabled={item.disabled} 
-              className={`flex flex-col items-center justify-center p-2 rounded-md w-1/5 text-xs sm:text-sm transition-colors duration-150
+              className={`flex flex-col items-center justify-center p-1 sm:p-2 rounded-md w-full text-xs sm:text-sm transition-colors duration-150
                 ${activeSection === item.key 
                   ? 'text-blue-600' 
                   : item.disabled ? 'text-slate-400 cursor-not-allowed' : 'text-slate-600 hover:text-blue-500'}
                 ${item.disabled ? 'opacity-70 cursor-not-allowed' : 'hover:bg-slate-100'}`}
               aria-current={activeSection === item.key ? 'page' : undefined}
               aria-disabled={item.disabled}
+              title={item.label}
             >
               <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-0.5 
                 ${activeSection === item.key ? 'text-blue-600' : item.disabled ? 'text-slate-400' : 'text-slate-600'}`} 
               />
-              {item.label}
+              <span className="truncate max-w-full">{item.label}</span>
             </button>
           ))}
         </nav>
