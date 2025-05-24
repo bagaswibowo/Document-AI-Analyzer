@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { ChatMessage } from '../types';
 import type { AppMode } from '../App';
@@ -5,7 +6,7 @@ import { ThemeContext } from '../index';
 import ReactMarkdown from 'react-markdown';
 import { 
   PaperAirplaneIcon, UserIcon, SparklesIcon, ChatBubbleLeftEllipsisIcon, DocumentTextIcon
-} from '@heroicons/react/24/solid'; // Use solid for main action icons
+} from '@heroicons/react/24/solid';
 
 interface QAChatProps {
   onQuery: (question: string) => Promise<string>;
@@ -15,7 +16,6 @@ interface QAChatProps {
   processedTextContent?: string | null; 
   sourceIdentifier?: string; 
 }
-
 
 export const QAChat: React.FC<QAChatProps> = ({ 
     onQuery, 
@@ -31,6 +31,7 @@ export const QAChat: React.FC<QAChatProps> = ({
   const { themeMode } = useContext(ThemeContext);
   const isDarkMode = themeMode === 'dark';
 
+  // Markdown components for chat messages
   const ChatMarkdownComponents = {
       p: ({node, ...props}: any) => <p className="mb-1 break-words text-sm" {...props} />,
       ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-1 text-sm" {...props} />,
@@ -50,10 +51,34 @@ export const QAChat: React.FC<QAChatProps> = ({
         );
       },
   };
-  const SummaryMarkdownComponents = {
-      p: ({node, ...props}: any) => <p className="leading-normal text-slate-600 dark:text-slate-400 text-xs m-0" {...props} />,
-      ul: ({node, ...props}: any) => <ul className="list-disc pl-3 my-0.5 text-xs text-slate-600 dark:text-slate-400" {...props} />,
+
+  // Enhanced Markdown components for the document summary, similar to InsightsGenerator
+  const EnhancedSummaryMarkdownComponents = {
+    h1: ({node, ...props}: any) => <h1 className="text-2xl font-bold my-3 text-blue-600 dark:text-blue-400 border-b pb-1 border-slate-300 dark:border-slate-600" {...props} />,
+    h2: ({node, ...props}: any) => <h2 className="text-xl font-semibold my-2 text-slate-700 dark:text-slate-300" {...props} />,
+    h3: ({node, ...props}: any) => <h3 className="text-lg font-medium my-1 text-slate-600 dark:text-slate-400" {...props} />,
+    p: ({node, ...props}: any) => <p className="my-1.5 leading-relaxed text-slate-700 dark:text-slate-300" {...props} />,
+    ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-1.5 space-y-0.5 text-slate-700 dark:text-slate-300" {...props} />,
+    ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-1.5 space-y-0.5 text-slate-700 dark:text-slate-300" {...props} />,
+    li: ({node, ...props}: any) => <li className="text-slate-700 dark:text-slate-300" {...props} />,
+    strong: ({node, ...props}: any) => <strong className="font-semibold text-slate-800 dark:text-slate-200" {...props} />,
+    em: ({node, ...props}: any) => <em className="italic text-slate-600 dark:text-slate-400" {...props} />,
+    a: ({node, ...props}: any) => <a className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer" {...props} />,
+    code: ({node, inline, className, children, ...props}: any) => {
+      const match = /language-(\w+)/.exec(className || '');
+      return !inline ? (
+        <pre className={`my-2 p-2 rounded-md bg-slate-100 dark:bg-slate-700 overflow-x-auto text-xs ${className || ''}`} {...props}>
+          <code className={`language-${match ? match[1] : 'text'}`}>{String(children).replace(/\n$/, '')}</code>
+        </pre>
+      ) : (
+        <code className="px-1 py-0.5 bg-slate-200 dark:bg-slate-600 rounded text-xs text-pink-600 dark:text-pink-400" {...props}>
+          {children}
+        </code>
+      );
+    },
+    blockquote: ({node, ...props}: any) => <blockquote className="my-1.5 pl-3 border-l-4 border-slate-300 dark:border-slate-600 italic text-slate-600 dark:text-slate-400" {...props} />,
   };
+
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -134,22 +159,22 @@ export const QAChat: React.FC<QAChatProps> = ({
 
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-0 rounded-lg shadow-none flex flex-col h-full min-h-[500px]"> {/* No internal padding, App.tsx handles it */}
-      <div className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center p-4 border-b border-slate-200 dark:border-slate-700">
+    <div className="bg-white dark:bg-slate-800 p-0 rounded-lg shadow-none flex flex-col h-full min-h-[500px]">
+      <div className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-0 flex items-center p-4 border-b border-slate-200 dark:border-slate-700">
         <ChatBubbleLeftEllipsisIcon className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
         {cardTitleText}
       </div>
 
       {currentMode === 'documentQa' && documentSummary && (
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
-          <div className="flex items-center mb-1">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex items-center mb-2">
               <DocumentTextIcon className="w-5 h-5 mr-2 text-blue-500 dark:text-blue-400" />
               <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                   Ringkasan Konten
               </span>
           </div>
-          <div className="max-h-24 overflow-y-auto prose prose-xs dark:prose-invert">
-           <ReactMarkdown components={SummaryMarkdownComponents}>{documentSummary}</ReactMarkdown>
+          <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none bg-slate-50 dark:bg-slate-800/50 p-3 rounded-md border border-slate-200 dark:border-slate-700">
+           <ReactMarkdown components={EnhancedSummaryMarkdownComponents}>{documentSummary}</ReactMarkdown>
           </div>
         </div>
       )}
@@ -181,7 +206,7 @@ export const QAChat: React.FC<QAChatProps> = ({
                       {msg.sender === 'user' ? 'Anda' : 'Asisten AI'}
                   </span>
                 </div>
-                <div className="prose prose-sm dark:prose-invert max-w-none message-content"> {/* Add a class for specific styling */}
+                <div className="prose prose-sm dark:prose-invert max-w-none message-content">
                   <ReactMarkdown components={ChatMarkdownComponents}>{msg.text}</ReactMarkdown>
                 </div>
                 <p className={`text-right mt-1 text-xs ${msg.sender === 'user' ? 'text-blue-200' : 'text-slate-400 dark:text-slate-500'}`}>

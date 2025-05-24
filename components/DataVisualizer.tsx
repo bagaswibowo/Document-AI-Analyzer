@@ -1,17 +1,19 @@
+
 import React, { useState, useMemo, useContext } from 'react';
 import { ParsedCsvData, ChartData } from '../types';
 import { ThemeContext } from '../index';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, 
-  LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis 
+  LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis, AreaChart, Area
 } from 'recharts';
 import { 
   ChartBarIcon as BarChartIconSolid, 
   ChartPieIcon as PieChartIconSolid,
   PresentationChartLineIcon as LineChartIconSolid,
   CircleStackIcon as ScatterPlotIconSolid,
-  MinusIcon as DoughnutIconSolid, // Placeholder
-} from '@heroicons/react/24/solid'; // Using solid for active state potentially
+  StopCircleIcon as DoughnutIconSolid, // Updated icon for Doughnut
+  MapIcon as AreaChartIconSolid, // Icon for Area Chart
+} from '@heroicons/react/24/solid';
 
 interface DataVisualizerProps {
   data: ParsedCsvData;
@@ -28,11 +30,11 @@ const getDefaultColors = (isDarkMode: boolean) => [
 ];
 
 
-type ChartType = 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'histogram';
+type ChartType = 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'histogram' | 'area'; // Added 'area'
 
 interface ChartTypeOption {
   id: ChartType;
-  name: string;
+  name: string; // Names will be in English
   icon: React.ElementType;
 }
 
@@ -57,10 +59,6 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
   const allColumns = useMemo(() => data.headers, [data.headers]);
 
   const chartData = useMemo((): ChartData | null => {
-    // ... (Chart data logic remains largely the same as in the AntD version, but ensure it's robust)
-    // Key adjustments:
-    // - Ensure all parseFloat conversions are handled safely (e.g. for scatter/line Y-axis)
-    // - Histogram logic should be robust for edge cases (e.g. single value, all same values)
     try {
       if (chartType === 'histogram') {
         if (!selectedXColumn || !numericalColumns.includes(selectedXColumn)) return null;
@@ -107,13 +105,13 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
           .slice(0, 10); 
       }
       
-      if ((chartType === 'bar' || chartType === 'line' || chartType === 'scatter') && !selectedXColumn) {
+      if ((chartType === 'bar' || chartType === 'line' || chartType === 'scatter' || chartType === 'area') && !selectedXColumn) {
         return null;
       }
       
-      if((chartType === 'line' || chartType === 'scatter') && !selectedYColumn) return null;
+      if((chartType === 'line' || chartType === 'scatter' || chartType === 'area') && !selectedYColumn) return null;
 
-      if (selectedXColumn && selectedYColumn && (chartType === 'line' || chartType === 'scatter' || chartType === 'bar')) {
+      if (selectedXColumn && selectedYColumn && (chartType === 'line' || chartType === 'scatter' || chartType === 'bar' || chartType === 'area')) {
          return data.rows.map(row => ({
           [selectedXColumn]: row[selectedXColumn],
           [selectedYColumn]: typeof row[selectedYColumn] === 'string' ? parseFloat(row[selectedYColumn] as string) : row[selectedYColumn]
@@ -139,7 +137,7 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
 
   const renderChart = () => {
     if (!chartData || chartData.length === 0) {
-      return <div className="w-full p-4 text-center text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/30 rounded-md">Tidak ada data untuk ditampilkan untuk pilihan saat ini, atau pilihan tidak lengkap.</div>;
+      return <div className="w-full p-4 text-center text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/30 rounded-md">No data to display for the current selection, or selection is incomplete.</div>;
     }
     
     const yAxisDataKey = chartType === 'histogram' || (chartType === 'bar' && !selectedYColumn) ? 'value' : selectedYColumn;
@@ -147,21 +145,21 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
 
     const commonTooltipProps = {
         contentStyle: { 
-            backgroundColor: isDarkMode ? 'rgb(30 41 59 / 0.9)' : 'rgb(255 255 255 / 0.9)', // slate-800 / white
-            border: `1px solid ${isDarkMode ? 'rgb(51 65 85)' : 'rgb(226 232 240)'}`, // slate-700 / slate-200
-            borderRadius: '0.375rem', // rounded-md
-            color: isDarkMode ? 'rgb(226 232 240)' : 'rgb(30 41 59)', // slate-200 / slate-800
+            backgroundColor: isDarkMode ? 'rgb(30 41 59 / 0.9)' : 'rgb(255 255 255 / 0.9)', 
+            border: `1px solid ${isDarkMode ? 'rgb(51 65 85)' : 'rgb(226 232 240)'}`, 
+            borderRadius: '0.375rem',
+            color: isDarkMode ? 'rgb(226 232 240)' : 'rgb(30 41 59)', 
             fontSize: '0.8rem',
-            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' // shadow-lg
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
         },
         itemStyle: { color: isDarkMode ? 'rgb(226 232 240)' : 'rgb(30 41 59)' },
-        labelStyle: { color: isDarkMode ? 'rgb(148 163 184)' : 'rgb(71 85 105)', fontWeight: 'bold' }, // slate-400 / slate-600
+        labelStyle: { color: isDarkMode ? 'rgb(148 163 184)' : 'rgb(71 85 105)', fontWeight: 'bold' },
         cursor:{ fill: isDarkMode ? 'rgb(51 65 85 / 0.5)' : 'rgb(226 232 240 / 0.5)' }
     };
     const commonAxisProps = {
-        stroke: isDarkMode ? 'rgb(71 85 105)' : 'rgb(203 213 225)', // slate-600 / slate-300
+        stroke: isDarkMode ? 'rgb(71 85 105)' : 'rgb(203 213 225)', 
         tickFormatter: (tick: any) => typeof tick === 'number' ? tick.toLocaleString('id-ID') : String(tick).substring(0, 15),
-        tick: { fill: isDarkMode ? 'rgb(148 163 184)' : 'rgb(100 116 139)', fontSize: 10 } // slate-400 / slate-500
+        tick: { fill: isDarkMode ? 'rgb(148 163 184)' : 'rgb(100 116 139)', fontSize: 10 } 
     };
     const commonLegendProps = { wrapperStyle: { color: isDarkMode ? 'rgb(226 232 240)' : 'rgb(30 41 59)', paddingTop: '10px', fontSize: 10 }};
 
@@ -189,6 +187,17 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
           <Line type="monotone" dataKey={selectedYColumn} stroke={COLORS[0]} strokeWidth={2} activeDot={{ r: 6, fill: COLORS[0], stroke: isDarkMode ? '#0f172a' : '#fff', strokeWidth: 1 }} dot={{r:3, fill:COLORS[0]}}/>
         </LineChart>
       );
+    } else if (chartType === 'area' && selectedXColumn && selectedYColumn) { // Added Area Chart
+        chartComponent = (
+          <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? 'rgb(51 65 85)' : 'rgb(226 232 240)'} />
+            <XAxis dataKey={selectedXColumn} {...commonAxisProps} />
+            <YAxis {...commonAxisProps} label={{ value: selectedYColumn, angle: -90, position: 'insideLeft', fill: commonAxisProps.tick.fill, style: {textAnchor: 'middle', fontSize: 10} }} />
+            <RechartsTooltip {...commonTooltipProps} />
+            <Legend {...commonLegendProps} />
+            <Area type="monotone" dataKey={selectedYColumn} stroke={COLORS[0]} fillOpacity={0.6} fill={COLORS[0]} strokeWidth={2} activeDot={{ r: 6, fill: COLORS[0], stroke: isDarkMode ? '#0f172a' : '#fff', strokeWidth: 1 }} dot={{r:3, fill:COLORS[0]}} />
+          </AreaChart>
+        );
     } else if ((chartType === 'pie' || chartType === 'doughnut') && selectedPieColumn) {
       chartComponent = (
         <PieChart margin={{ top: 10, right: 10, bottom: 30, left: 10 }}>
@@ -237,7 +246,7 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
     }
 
     if (!chartComponent) {
-        return <div className="w-full p-4 text-center text-sm text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-700/30 rounded-md">Tidak dapat merender grafik dengan pilihan saat ini.</div>;
+        return <div className="w-full p-4 text-center text-sm text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-700/30 rounded-md">Cannot render chart with current selections.</div>;
     }
 
     return (
@@ -254,16 +263,16 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
     if (chartType === 'pie' || chartType === 'doughnut') {
       return (
         <div>
-          <label htmlFor="pieColumn" className={commonLabelClass}>Kolom Kategorikal</label>
+          <label htmlFor="pieColumn" className={commonLabelClass}>Categorical Column</label>
           <select
             id="pieColumn"
             value={selectedPieColumn || ""}
             onChange={(e) => setSelectedPieColumn(e.target.value || null)}
             className={commonSelectClass}
           >
-            <option value="">Pilih Kolom</option>
+            <option value="">Select Column</option>
             {categoricalColumns.map(col => <option key={col} value={col}>{col}</option>)}
-            {allColumns.filter(col => !categoricalColumns.includes(col)).map(col => <option key={col} value={col} disabled>{col} (kurang ideal)</option>)}
+            {allColumns.filter(col => !categoricalColumns.includes(col)).map(col => <option key={col} value={col} disabled>{col} (less ideal)</option>)}
           </select>
         </div>
       );
@@ -273,19 +282,19 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
       return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="histogramXColumn" className={commonLabelClass}>Kolom Numerik (Histogram)</label>
+            <label htmlFor="histogramXColumn" className={commonLabelClass}>Numeric Column (Histogram)</label>
             <select
               id="histogramXColumn"
               value={selectedXColumn || ""}
               onChange={(e) => setSelectedXColumn(e.target.value || null)}
               className={commonSelectClass}
             >
-              <option value="">Pilih Kolom Numerik</option>
+              <option value="">Select Numeric Column</option>
               {numericalColumns.map(col => <option key={col} value={col}>{col}</option>)}
             </select>
           </div>
           <div>
-             <label htmlFor="histogramBins" className={commonLabelClass}>Jumlah Bin</label>
+             <label htmlFor="histogramBins" className={commonLabelClass}>Number of Bins</label>
              <select id="histogramBins" value={histogramBins} onChange={(e) => setHistogramBins(Number(e.target.value))} className={commonSelectClass}>
                 {[5, 8, 10, 12, 15, 20, 25, 30].map(b => <option key={b} value={b}>{b}</option>)}
              </select>
@@ -294,30 +303,31 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
       );
     }
 
+    // For Bar, Line, Scatter, Area
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="xAxisColumn" className={commonLabelClass}>{chartType === 'bar' && !selectedYColumn ? 'Kolom Kategori (Bar)' : 'Kolom Sumbu X'}</label>
+          <label htmlFor="xAxisColumn" className={commonLabelClass}>{chartType === 'bar' && !selectedYColumn ? 'Category Column (Bar)' : 'X-Axis Column'}</label>
           <select
             id="xAxisColumn"
             value={selectedXColumn || ""}
             onChange={(e) => setSelectedXColumn(e.target.value || null)}
             className={commonSelectClass}
           >
-            <option value="">Pilih Kolom Sumbu X</option>
+            <option value="">Select X-Axis Column</option>
             {(chartType === 'scatter' ? numericalColumns : allColumns).map(col => <option key={col} value={col}>{col}</option>)}
           </select>
         </div>
-        { (chartType === 'line' || chartType === 'scatter' || (chartType === 'bar' && selectedXColumn)) && (
+        { (chartType === 'line' || chartType === 'scatter' || chartType === 'area' || (chartType === 'bar' && selectedXColumn)) && (
           <div>
-            <label htmlFor="yAxisColumn" className={commonLabelClass}>Kolom Sumbu Y (Numerik)</label>
+            <label htmlFor="yAxisColumn" className={commonLabelClass}>Y-Axis Column (Numeric)</label>
             <select
               id="yAxisColumn"
               value={selectedYColumn || ""}
               onChange={(e) => setSelectedYColumn(e.target.value || null)}
               className={commonSelectClass}
             >
-              <option value="">Pilih Kolom Sumbu Y (Opsional untuk Bar)</option>
+              <option value="">Select Y-Axis Column (Optional for Bar)</option>
               {numericalColumns.map(col => <option key={col} value={col}>{col}</option>)}
             </select>
           </div>
@@ -327,19 +337,20 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
   };
   
   const chartTypeOptions: ChartTypeOption[] = [
-    { id: 'bar', name: 'Batang', icon: BarChartIconSolid },
-    { id: 'line', name: 'Garis', icon: LineChartIconSolid },
-    { id: 'pie', name: 'Lingkaran', icon: PieChartIconSolid },
-    { id: 'doughnut', name: 'Donat', icon: DoughnutIconSolid }, 
-    { id: 'scatter', name: 'Sebar', icon: ScatterPlotIconSolid },
-    { id: 'histogram', name: 'Histogram', icon: BarChartIconSolid },
+    { id: 'bar', name: 'Bar', icon: BarChartIconSolid },
+    { id: 'line', name: 'Line', icon: LineChartIconSolid },
+    { id: 'area', name: 'Area', icon: AreaChartIconSolid }, // Added Area chart
+    { id: 'pie', name: 'Pie', icon: PieChartIconSolid },
+    { id: 'doughnut', name: 'Doughnut', icon: DoughnutIconSolid }, 
+    { id: 'scatter', name: 'Scatter', icon: ScatterPlotIconSolid },
+    { id: 'histogram', name: 'Histogram', icon: BarChartIconSolid }, // Reusing Bar icon for Histogram
   ];
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-0 sm:p-0 rounded-lg shadow-none min-h-[calc(100vh-250px)]"> {/* No internal padding, App.tsx handles it */}
+    <div className="bg-white dark:bg-slate-800 p-0 sm:p-0 rounded-lg shadow-none min-h-[calc(100vh-250px)]">
       <div className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
         <BarChartIconSolid className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
-        Studio Visualisasi Data
+        Data Visualization Studio
       </div>
       
       <div className="mb-6 flex flex-wrap justify-center gap-2 p-2 bg-slate-100 dark:bg-slate-700/50 rounded-md">
@@ -349,7 +360,11 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
             onClick={() => {
                 setChartType(ct.id);
                 if (ct.id === 'pie' || ct.id === 'doughnut' || ct.id === 'histogram') {
-                    setSelectedYColumn(null);
+                    setSelectedYColumn(null); // Reset Y for types not needing it
+                }
+                // Ensure Y column is selected for Area if switching from a type that doesn't use it
+                if ((ct.id === 'line' || ct.id === 'area' || ct.id === 'scatter') && !selectedYColumn && numericalColumns.length > 0) {
+                     setSelectedYColumn(numericalColumns[0]);
                 }
             }}
             className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-md flex items-center space-x-2 transition-all duration-150
