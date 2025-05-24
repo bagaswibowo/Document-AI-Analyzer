@@ -13,6 +13,7 @@ function sanitizeStringForJSON(str: string | undefined | null): string {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const targetUrl = req.query.url as string;
+  const errorTimestamp = new Date().toISOString(); // Definisikan di awal untuk konsistensi
 
   if (!targetUrl) {
     return res.status(400).json({ error: 'Parameter URL target diperlukan.' });
@@ -27,36 +28,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Encoding': 'gzip, deflate, br', // Meminta kompresi
       },
-      timeout: 10000, 
+      timeout: 8000, // Mengurangi timeout menjadi 8 detik
       responseType: 'text', 
-      decompress: true,
+      decompress: true, // Meminta axios untuk menangani dekompresi
     });
 
     if (status !== 200) {
-      console.error(`PROXY_UNEXPECTED_NON_ERROR_STATUS: Target URL ${targetUrl} merespons dengan status ${status} tetapi axios tidak melempar error.`);
+      console.error(`PROXY_UNEXPECTED_NON_ERROR_STATUS (${errorTimestamp}): Target URL ${targetUrl} merespons dengan status ${status} tetapi axios tidak melempar error.`);
       return res.status(status).json({ error: `Server target (${sanitizeStringForJSON(targetUrl)}) merespons dengan status ${status} (ditangani secara eksplisit).` });
     }
 
     const $ = cheerio.load(htmlString);
 
+    // Hapus elemen yang tidak relevan
     $('script, style, noscript, nav, footer, header, aside, form, iframe, link, meta[name="robots"], [aria-hidden="true"]').remove();
     
     let extractedText = '';
+    // Coba ekstrak dari elemen yang lebih spesifik dulu
     if ($('main').length) {
       extractedText = $('main').text();
     } else if ($('article').length) {
       extractedText = $('article').text();
-    } else if ($('body').length) { 
+    } else if ($('body').length) { // Fallback ke body jika main atau article tidak ada
       extractedText = $('body').text();
-    } else { 
+    } else { // Jika body pun tidak ada (sangat tidak mungkin untuk HTML valid)
       extractedText = ""; 
     }
     
+    // Pembersihan teks dasar
     extractedText = extractedText
-      .replace(/(\r\n|\n|\r){3,}/g, '\n\n') 
-      .replace(/[ \t]{2,}/g, ' ') 
+      .replace(/(\r\n|\n|\r){3,}/g, '\n\n') // Kurangi baris baru berlebih
+      .replace(/[ \t]{2,}/g, ' ') // Kurangi spasi/tab berlebih
       .trim();
 
     if (!extractedText) {
@@ -66,15 +70,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ extractedText });
 
   } catch (error: any) {
-    const errorTimestamp = new Date().toISOString();
-    console.error(`PROXY_CAUGHT_ERROR_RAW (${errorTimestamp}):`, error); // Log error mentah
+    // Log error mentah untuk debugging di sisi server
+    console.error(`PROXY_CAUGHT_ERROR_RAW (${errorTimestamp}):`, error); 
     console.error(`PROXY_ERROR_DETAILS (${errorTimestamp}): Error saat mengambil ${targetUrl}. Pesan: ${error?.message}. Stack: ${error?.stack}`);
 
     let statusCode = 500;
     let clientErrorMessage = `Gagal mengambil atau memproses konten dari URL target (${sanitizeStringForJSON(targetUrl)}). Silakan coba lagi nanti atau periksa URL.`; 
 
     if (axios.isAxiosError(error)) {
-        if (error.response) { 
+        if (error.code === 'ECONNABORTED' || error.message.toLowerCase().includes('timeout')) {
+            statusCode = 504; // Gateway Timeout
+            clientErrorMessage = `Waktu tunggu habis saat mencoba mengambil konten dari server target (${sanitizeStringForJSON(targetUrl)}). Server mungkin lambat merespons atau tidak dapat dijangkau.`;
+            console.error(`PROXY_AXIOS_TIMEOUT_ERROR (${errorTimestamp}): Timeout setelah ${error.config?.timeout}ms.`);
+        } else if (error.response) { 
             statusCode = error.response.status;
             let targetServerMessage = `Server target (${sanitizeStringForJSON(targetUrl)}) merespons dengan status ${statusCode}.`;
             
@@ -91,7 +99,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } else {
                     detailSnippet = String(error.response.data).substring(0, 150);
                 }
-                // Sanitasi snippet sebelum dimasukkan ke pesan error
                 targetServerMessage += ` Detail: ${sanitizeStringForJSON(detailSnippet)}${String(error.response.data).length > 150 ? '...' : ''}`;
             }
             clientErrorMessage = targetServerMessage;
@@ -112,9 +119,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     
     try {
-        return res.status(statusCode).json({ error: clientErrorMessage });
+        // Selalu sanitasi seluruh pesan error akhir sebelum mengirim
+        const finalSanitizedErrorMessage = sanitizeStringForJSON(clientErrorMessage);
+        return res.status(statusCode).json({ error: finalSanitizedErrorMessage });
     } catch (responseJsonError) {
+        // Ini adalah fallback jika pembuatan JSON error itu sendiri gagal.
         console.error(`PROXY_CRITICAL_ERROR (${errorTimestamp}): Gagal mengirim respons JSON ke klien:`, responseJsonError, "Pesan error asli yang coba dikirim:", clientErrorMessage);
+        // Mengirim respons teks biasa jika JSON gagal. Ini akan menyebabkan error parsing di frontend, tapi lebih baik daripada tidak ada respons.
         res.status(500).setHeader('Content-Type', 'text/plain').send("Kesalahan kritis pada server proxy. Tidak dapat membentuk respons JSON. Periksa log server untuk detail.");
     }
   }
