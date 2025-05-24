@@ -22,7 +22,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, iconColor
       <Icon className={`w-6 h-6 ${iconColorClass}`} />
     </div>
     <div>
-      <p className="text-sm text-slate-500">{title}</p>
+      <p className="text-sm text-slate-600">{title}</p>
       <p className="text-xl font-semibold text-slate-700">{value}</p>
     </div>
   </div>
@@ -75,15 +75,15 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
 
       <div>
         <h3 className="text-lg font-semibold mb-3 text-slate-700 flex items-center">
-          <PresentationChartBarIcon className="w-6 h-6 mr-2 text-blue-500" />
+          <PresentationChartBarIcon className="w-6 h-6 mr-2 text-emerald-600" />
           Informasi Kolom
         </h3>
         <div className="overflow-x-auto bg-white shadow rounded-lg">
           <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
+            <thead className="bg-gray-100">
               <tr>
                 {columnInfoColumns.map(col => (
-                  <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     {col.title}
                   </th>
                 ))}
@@ -124,16 +124,16 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
       
       <div>
         <h3 className="text-lg font-semibold mb-3 text-slate-700 flex items-center">
-          <ListBulletIcon className="w-6 h-6 mr-2 text-blue-500" />
+          <ListBulletIcon className="w-6 h-6 mr-2 text-emerald-600" />
           Data Sampel (10 Baris Pertama)
         </h3>
         {data.sampleRows.length > 0 ? (
           <div className="overflow-x-auto bg-white shadow rounded-lg">
             <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+              <thead className="bg-gray-100">
                 <tr>
                   {sampleDataColumns.map(col => (
-                    <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider truncate max-w-[150px]" title={col.title}>
+                    <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-gray-700 uppercase tracking-wider truncate max-w-[150px]" title={col.title}>
                       {col.title}
                     </th>
                   ))}
@@ -153,7 +153,7 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-slate-500">Tidak ada data sampel untuk ditampilkan.</p>
+          <p className="text-sm text-slate-600">Tidak ada data sampel untuk ditampilkan.</p>
         )}
       </div>
     </div>

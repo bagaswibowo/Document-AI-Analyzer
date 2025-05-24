@@ -135,7 +135,7 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
 
   const renderChart = () => {
     if (!chartData || chartData.length === 0) {
-      return <div className="w-full p-4 text-center text-sm text-slate-500 bg-slate-50 rounded-md">No data to display for the current selection, or selection is incomplete.</div>;
+      return <div className="w-full p-4 text-center text-sm text-slate-700 bg-gray-100 rounded-md">No data to display for the current selection, or selection is incomplete.</div>;
     }
     
     const yAxisDataKey = chartType === 'histogram' || (chartType === 'bar' && !selectedYColumn) ? 'value' : selectedYColumn;
@@ -346,7 +346,7 @@ export const DataVisualizer: React.FC<DataVisualizerProps> = ({ data }) => {
   return (
     <div className="bg-white p-0 sm:p-0 rounded-lg shadow-none min-h-[calc(100vh-250px)]">
       <div className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
-        <BarChartIconSolid className="w-6 h-6 mr-2 text-blue-600" />
+        <BarChartIconSolid className="w-6 h-6 mr-2 text-violet-600" />
         Data Visualization Studio
       </div>
       

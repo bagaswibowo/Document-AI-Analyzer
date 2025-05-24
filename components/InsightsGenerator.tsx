@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 // ThemeContext removed
 import ReactMarkdown from 'react-markdown';
@@ -21,7 +22,7 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
       ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-2 space-y-1 text-slate-700" {...props} />,
       ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-2 space-y-1 text-slate-700" {...props} />,
       li: ({node, ...props}: any) => <li className="text-slate-700" {...props} />,
-      strong: ({node, ...props}: any) => <strong className="font-semibold text-slate-800" {...props} />,
+      strong: ({node, ...props}: any) => <strong className="font-semibold text-green-800 bg-green-100 px-1 py-0.5 rounded-sm" {...props} />,
       em: ({node, ...props}: any) => <em className="italic text-slate-600" {...props} />,
       a: ({node, ...props}: any) => <a className="text-blue-600 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer" {...props} />,
       code: ({node, inline, className, children, ...props}: any) => {
@@ -59,7 +60,7 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
   return (
     <div className="bg-white p-0 rounded-lg shadow-none min-h-[calc(100vh-250px)]">
       <div className="text-lg font-semibold text-slate-800 mb-6 flex items-center">
-        <LightBulbIcon className="w-6 h-6 mr-2 text-blue-600" />
+        <LightBulbIcon className="w-6 h-6 mr-2 text-amber-600" />
         Wawasan Berbasis AI (Data Tabular)
       </div>
       
@@ -103,9 +104,9 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
       )}
       {!insights && !isLoading && !error && (
          <div className="p-8 text-center bg-slate-50 rounded-lg">
-          <LightBulbIcon className="w-16 h-16 text-blue-400 opacity-60 mx-auto mb-4" />
+          <LightBulbIcon className="w-16 h-16 text-amber-400 opacity-60 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-700 mb-2">Klik tombol di atas untuk menghasilkan wawasan.</h3>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-600">
             Temukan pola, anomali, dan observasi menarik dalam dataset Anda.
           </p>
         </div>

@@ -36,7 +36,7 @@ export const QAChat: React.FC<QAChatProps> = ({
       ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-1 text-sm" {...props} />,
       li: ({node, ...props}: any) => <li className="mb-0.5 text-sm" {...props} />,
       a: ({node, ...props}: any) => <a className="text-blue-500 hover:underline text-sm" target="_blank" rel="noopener noreferrer" {...props} />,
-      strong: ({node, ...props}: any) => <strong className="font-semibold text-sm" {...props} />,
+      strong: ({node, ...props}: any) => <strong className="font-semibold text-sky-800 bg-sky-100 px-1 py-0.5 rounded-sm" {...props} />,
       code: ({node, inline, className, children, ...props}: any) => {
         return !inline ? (
           <pre className={`my-1 p-2 rounded bg-slate-200 overflow-x-auto text-xs ${className || ''}`} {...props}>
@@ -58,7 +58,7 @@ export const QAChat: React.FC<QAChatProps> = ({
     ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-1.5 space-y-0.5 text-slate-700" {...props} />,
     ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-1.5 space-y-0.5 text-slate-700" {...props} />,
     li: ({node, ...props}: any) => <li className="text-slate-700" {...props} />,
-    strong: ({node, ...props}: any) => <strong className="font-semibold text-slate-800" {...props} />,
+    strong: ({node, ...props}: any) => <strong className="font-semibold text-sky-800 bg-sky-100 px-1 py-0.5 rounded-sm" {...props} />,
     em: ({node, ...props}: any) => <em className="italic text-slate-600" {...props} />,
     a: ({node, ...props}: any) => <a className="text-blue-600 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer" {...props} />,
     code: ({node, inline, className, children, ...props}: any) => {
@@ -158,7 +158,7 @@ export const QAChat: React.FC<QAChatProps> = ({
   return (
     <div className="bg-white p-0 rounded-lg shadow-none flex flex-col h-full min-h-[500px]">
       <div className="text-lg font-semibold text-slate-800 mb-0 flex items-center p-4 border-b border-slate-200">
-        <ChatBubbleLeftEllipsisIcon className="w-6 h-6 mr-2 text-blue-600" />
+        <ChatBubbleLeftEllipsisIcon className="w-6 h-6 mr-2 text-cyan-600" />
         {cardTitleText}
       </div>
 
@@ -180,7 +180,7 @@ export const QAChat: React.FC<QAChatProps> = ({
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
           {messages.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 p-4">
-                <ChatBubbleLeftEllipsisIcon className="w-16 h-16 mb-4 opacity-50" />
+                <ChatBubbleLeftEllipsisIcon className="w-16 h-16 mb-4 opacity-50 text-cyan-400" />
                 <h3 className="text-md font-semibold">{initialMessageText}</h3>
                 <p className="text-xs">{initialMessageExample}</p>
               </div>
@@ -190,7 +190,7 @@ export const QAChat: React.FC<QAChatProps> = ({
               <div className={`max-w-[75%] p-2.5 rounded-xl shadow-sm
                   ${msg.sender === 'user' 
                     ? 'bg-blue-600 text-white rounded-br-none' 
-                    : 'bg-white text-slate-800 rounded-bl-none'
+                    : 'bg-white text-slate-800 rounded-bl-none border border-slate-200'
                   }`}
               >
                 <div className="flex items-center space-x-1.5 mb-1">
@@ -206,7 +206,7 @@ export const QAChat: React.FC<QAChatProps> = ({
                 <div className="prose prose-sm max-w-none message-content">
                   <ReactMarkdown components={ChatMarkdownComponents}>{msg.text}</ReactMarkdown>
                 </div>
-                <p className={`text-right mt-1 text-xs ${msg.sender === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
+                <p className={`text-right mt-1 text-xs ${msg.sender === 'user' ? 'text-blue-200' : 'text-slate-500'}`}>
                   {msg.timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
@@ -214,12 +214,12 @@ export const QAChat: React.FC<QAChatProps> = ({
           ))}
           {isLoading && messages[messages.length -1]?.sender === 'user' && (
             <div className="flex justify-start">
-              <div className="p-2.5 rounded-xl bg-white text-slate-800 shadow-sm rounded-bl-none inline-flex items-center space-x-2">
+              <div className="p-2.5 rounded-xl bg-white text-slate-800 shadow-sm rounded-bl-none inline-flex items-center space-x-2 border border-slate-200">
                 <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span className="text-sm text-slate-500">AI sedang berpikir...</span>
+                <span className="text-sm text-slate-600">AI sedang berpikir...</span>
               </div>
             </div>
           )}
@@ -239,7 +239,7 @@ export const QAChat: React.FC<QAChatProps> = ({
                 className="flex-grow block w-full px-3 py-2.5 border border-slate-300 rounded-md shadow-sm 
                            bg-white text-slate-900 
                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-                           placeholder-slate-400 text-sm"
+                           placeholder-slate-600 text-sm"
               />
               <button
                 type="button"

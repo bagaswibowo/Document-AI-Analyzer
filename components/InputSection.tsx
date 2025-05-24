@@ -31,6 +31,7 @@ interface ModeConfig {
   key: InputMode;
   title: string;
   icon: React.ElementType;
+  iconColorClass: string; // Added for colorful section icons
   description: string;
   fileTypesText?: string;
   submitButtonText: string;
@@ -56,28 +57,28 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_WORDS = 20000;
-  const MAX_FILE_SIZE_TABULAR = 15 * 1024 * 1024; // 15MB
-  const MAX_FILE_SIZE_DOCUMENT = 10 * 1024 * 1024; // 10MB
+  const MAX_FILE_SIZE_TABULAR = 25 * 1024 * 1024; // 25MB
+  const MAX_FILE_SIZE_DOCUMENT = 25 * 1024 * 1024; // 25MB
 
   const modeConfigs: ModeConfig[] = [
     {
-      key: 'tabular', title: "Data Tabular", icon: DocumentDuplicateIcon,
+      key: 'tabular', title: "Data Tabular", icon: DocumentDuplicateIcon, iconColorClass: "text-sky-600",
       description: "Unggah file CSV, TSV, atau Excel Anda untuk dianalisis.",
-      fileTypesText: `.csv, .tsv, .xls, .xlsx. Maks: ${(MAX_FILE_SIZE_TABULAR / (1024*1024)).toFixed(0)}MB.`,
+      fileTypesText: `.csv, .tsv, .xls, .xlsx. Maks: ${(MAX_FILE_SIZE_TABULAR / (1024*1024)).toFixed(0)} MB.`,
       submitButtonText: "Proses File Tabular",
       acceptAttr: ".csv,.tsv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values",
     },
     {
-      key: 'document', title: "Dokumen", icon: DocumentChartBarIcon,
+      key: 'document', title: "Dokumen", icon: DocumentChartBarIcon, iconColorClass: "text-lime-600",
       description: "Unggah file PDF, DOCX, DOC, atau TXT untuk diringkas dan ditanyai.",
-      fileTypesText: `.pdf, .docx, .doc, .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)}MB.`,
+      fileTypesText: `.pdf, .docx, .doc, .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)} MB.`,
       submitButtonText: "Proses File Dokumen",
       acceptAttr: ".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain",
       showDocWarning: (fileName: string) => fileName.toLowerCase().endsWith('.doc'),
       docWarningText: "Dukungan untuk format .doc (Word 97-2003) mungkin terbatas, terutama untuk file dengan tata letak kompleks. Hasil ekstraksi teks mungkin tidak sempurna. Untuk hasil terbaik, disarankan menggunakan format .docx atau .pdf."
     },
     {
-      key: 'directText', title: "Teks Langsung", icon: PencilSquareIcon,
+      key: 'directText', title: "Teks Langsung", icon: PencilSquareIcon, iconColorClass: "text-rose-600",
       description: `Ketik atau tempel teks Anda di bawah ini (maks. ${MAX_WORDS.toLocaleString('id-ID')} kata).`,
       submitButtonText: "Proses Teks",
     },
@@ -104,7 +105,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
     if (file) {
       const maxSize = activeMode === 'tabular' ? MAX_FILE_SIZE_TABULAR : MAX_FILE_SIZE_DOCUMENT;
       if (file.size > maxSize) {
-        setExternalError(`Ukuran file melebihi batas maksimum (${(maxSize / (1024 * 1024)).toFixed(0)}MB).`);
+        setExternalError(`Ukuran file melebihi batas maksimum (${(maxSize / (1024 * 1024)).toFixed(0)} MB).`);
         setSelectedFile(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
@@ -127,7 +128,19 @@ export const InputSection: React.FC<InputSectionProps> = ({
     }
   };
 
-  const getFileIcon = (fileName: string): React.ElementType => {
+  const getFileIconColor = (fileName: string): string => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'csv': case 'tsv': return 'text-sky-500';
+      case 'xls': case 'xlsx': return 'text-green-500';
+      case 'pdf': return 'text-red-500';
+      case 'docx': case 'doc': return 'text-blue-500';
+      case 'txt': return 'text-slate-500';
+      default: return 'text-gray-500';
+    }
+  };
+  
+  const getFileIconElement = (fileName: string): React.ElementType => {
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'csv': case 'tsv': case 'xls': case 'xlsx':
@@ -135,13 +148,14 @@ export const InputSection: React.FC<InputSectionProps> = ({
       case 'pdf':
         return DocumentChartBarIcon; 
       case 'docx': case 'doc':
-        return DocumentDuplicateIcon; // Using same as tabular for Word docs
+        return DocumentDuplicateIcon; 
       case 'txt':
         return DocumentTextIcon;
       default:
         return DocumentTextIcon; 
     }
   };
+
 
   const handleDirectTextChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = event.target.value;
@@ -162,7 +176,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
     try {
       let parsed: ParsedCsvData;
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      const fileText = await file.text(); // Only for CSV/TSV initially
+      const fileText = await file.text(); 
 
       if (fileExtension === 'csv') {
         const { headers, rows } = parseCSV(fileText, ',');
@@ -171,8 +185,9 @@ export const InputSection: React.FC<InputSectionProps> = ({
         const { headers, rows } = parseCSV(fileText, '\t');
         parsed = { headers, rows, columnInfos: [], rowCount: rows.length, columnCount: headers.length, sampleRows: [], fileName: file.name };
       } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        // parseExcel currently uses a mock that tries to parse as CSV. 
-        // For a real implementation, SheetJS would be used here.
+        // Note: parseExcel in dataAnalysisService is a mock. 
+        // For real Excel parsing, a library like SheetJS would be needed.
+        // This implementation currently reads Excel as text and tries to parse as CSV.
         parsed = await parseExcel(file); 
       } else {
         throw new Error("Tipe file tabular tidak didukung.");
@@ -220,11 +235,16 @@ export const InputSection: React.FC<InputSectionProps> = ({
       setIsLoading(true);
       setLoadingMessage("Memproses teks input...");
       setExternalError(null);
+      // Simulate processing for direct text, as Gemini calls happen later
       onDocumentOrTextProcessed(directText, "Teks Langsung");
     } 
+    // setIsLoading(false) is handled within processTabularFile/processDocumentFile 
+    // or in App.tsx for direct text after summarization.
   };
 
-  const SelectedFileIcon = selectedFile ? getFileIcon(selectedFile.name) : null;
+  const SelectedFileIconElement = selectedFile ? getFileIconElement(selectedFile.name) : null;
+  const selectedFileIconColor = selectedFile ? getFileIconColor(selectedFile.name) : 'text-gray-500';
+
 
   return (
     <div className="w-full">
@@ -238,12 +258,12 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 py-2 px-2 text-xs sm:py-2.5 sm:px-3 sm:text-sm 
                 border-b-2 font-medium transition-colors duration-150 flex items-center space-x-1 sm:space-x-1.5
                 ${activeMode === tab.key
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  ? `border-blue-500 text-blue-600`
+                  : `border-transparent text-slate-600 hover:text-slate-800 hover:border-slate-400`
                 }`}
               aria-current={activeMode === tab.key ? 'page' : undefined}
             >
-              <tab.icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+              <tab.icon className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${activeMode === tab.key ? tab.iconColorClass : 'text-slate-500'}`} />
               <span>{tab.title}</span>
             </button>
           ))}
@@ -252,7 +272,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
       <div className="mt-2">
         <div className="flex items-center space-x-2 mb-1">
-            <currentConfig.icon className="w-7 h-7 text-blue-600" />
+            <currentConfig.icon className={`w-7 h-7 ${currentConfig.iconColorClass}`} />
             <h2 className="text-xl font-semibold text-slate-800">{currentConfig.title}</h2>
         </div>
         <p className="text-sm text-slate-600 mb-6">{currentConfig.description}</p>
@@ -260,8 +280,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
         {activeMode === 'tabular' || activeMode === 'document' ? (
           <>
             {showSpecificDocWarning && selectedFile && activeMode === 'document' && currentConfig.docWarningText && (
-                <div className="my-4 p-3 rounded-md bg-yellow-50 border border-yellow-300 text-yellow-700 flex items-start space-x-2">
-                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                <div className="my-4 p-3 rounded-md bg-yellow-50 border border-yellow-300 text-yellow-800 flex items-start space-x-2">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                     <div>
                         <h3 className="font-semibold text-sm">Catatan untuk file .doc</h3>
                         <p className="text-xs">{currentConfig.docWarningText}</p>
@@ -274,7 +294,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 bg-slate-50'}`}
             >
               <div className="space-y-1 text-center">
-                <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-slate-400" />
+                <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-slate-500" />
                 <div className="flex text-sm text-slate-600">
                   <span className="relative font-medium text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
                     Unggah file
@@ -282,7 +302,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
                   <input id="file-upload" name="file-upload" type="file" className="sr-only" ref={fileInputRef} onChange={handleFileChange} accept={currentConfig.acceptAttr} disabled={isLoading} />
                   <p className="pl-1">atau seret dan lepas</p>
                 </div>
-                <p className="text-xs text-slate-500">{currentConfig.fileTypesText}</p>
+                <p className="text-xs text-slate-600">{currentConfig.fileTypesText}</p>
               </div>
             </label>
 
@@ -290,15 +310,15 @@ export const InputSection: React.FC<InputSectionProps> = ({
               <div className="mt-4 p-3 border border-slate-200 rounded-md bg-slate-50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    {SelectedFileIcon && <SelectedFileIcon className="h-8 w-8 text-blue-500" />}
+                    {SelectedFileIconElement && <SelectedFileIconElement className={`h-8 w-8 ${selectedFileIconColor}`} />}
                     <div>
                       <p className="text-sm font-medium text-slate-700 truncate max-w-xs sm:max-w-md">{selectedFile.name}</p>
-                      <p className="text-xs text-slate-500">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                      <p className="text-xs text-slate-600">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
                     </div>
                   </div>
                   <button 
                     onClick={handleRemoveFile} 
-                    className="p-1 text-slate-400 hover:text-red-500 rounded-full"
+                    className="p-1 text-slate-500 hover:text-red-600 rounded-full"
                     aria-label="Hapus file"
                     title="Hapus file"
                   >
@@ -326,7 +346,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
               placeholder="Ketik atau tempel teks di sini..."
               rows={8}
               disabled={isLoading}
-              className="block w-full shadow-sm sm:text-sm border-slate-300 rounded-md bg-white text-slate-900 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full shadow-sm sm:text-sm border-slate-300 rounded-md bg-white text-slate-900 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-600"
             />
             <div className="mt-2 flex justify-between items-center">
               <p className={`text-xs ${wordCount > MAX_WORDS ? 'text-red-600' : 'text-slate-500'}`}>
@@ -357,8 +377,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
         )}
 
         {(activeMode === 'tabular' || activeMode === 'document') && !selectedFile && !isLoading && (
-           <div className="mt-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 flex items-start space-x-2">
-              <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+           <div className="mt-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-800 flex items-start space-x-2">
+              <InformationCircleIcon className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs">Untuk memulai, silakan pilih atau seret file ke area di atas sesuai dengan tipe yang diinginkan.</p>
           </div>
         )}

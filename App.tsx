@@ -9,6 +9,7 @@ import { DocumentEvaluator } from './components/DocumentEvaluator';
 import { ParsedCsvData } from './types';
 import { analyzeColumns, SupportedCalculation as SupportedCalculationType } from './services/dataAnalysisService';
 import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest, evaluateDocumentWithReferences } from './services/geminiService';
+import { ToastDisplay, ToastConfig } from './components/common/ToastDisplay';
 
 import {
   ArrowDownTrayIcon,
@@ -76,6 +77,7 @@ const App: React.FC = () => {
 
   const [documentEvaluation, setDocumentEvaluation] = useState<string | null>(null);
   const [evaluationLoading, setEvaluationLoading] = useState<boolean>(false);
+  const [toastConfig, setToastConfig] = useState<ToastConfig | null>(null);
 
 
   const dataSummaryForAI = useMemo(() => formatDataSummaryForAI(parsedData), [parsedData]);
@@ -88,7 +90,7 @@ const App: React.FC = () => {
     setActiveInputSourceIdentifier(undefined);
     setError(null);
     if (!keepCurrentMode) {
-        setCurrentMode('dataAnalysis'); // Default ke dataAnalysis kecuali diminta untuk mempertahankan
+        setCurrentMode('dataAnalysis'); 
     }
   };
 
@@ -121,7 +123,7 @@ const App: React.FC = () => {
   }, []);
   
   const handleDocumentOrTextProcessed = useCallback(async (text: string, sourceName: string, navigateToEvaluation: boolean = false) => {
-    resetAppStateForNewInput(true); // Keep current mode if processing for evaluation from within evaluator
+    resetAppStateForNewInput(true); 
     setIsLoading(true);
     setLoadingMessage(`Memproses konten dari ${sourceName} dan membuat ringkasan...`);
     setCurrentMode('documentQa');
@@ -135,7 +137,6 @@ const App: React.FC = () => {
       console.error("Error summarizing content:", e);
       setError(`Gagal membuat ringkasan: ${e instanceof Error ? e.message : String(e)}`);
       setDocumentSummary(null);
-      // Don't reset source identifier here, as text is processed
       setActiveSection('input'); 
     } finally {
       setIsLoading(false);
@@ -298,15 +299,14 @@ const App: React.FC = () => {
                   sourceIdentifier={activeInputSourceIdentifier}
                 /> : commonDisabledMessage("Silakan input data, dokumen, atau teks terlebih dahulu untuk mengakses bagian ini.");
       case 'evaluate':
-        // DocumentEvaluator will handle its own input if processedTextContent is null
         return <DocumentEvaluator
                   originalContent={processedTextContent}
                   onEvaluate={handleEvaluateDocument}
-                  isLoading={evaluationLoading} // This is for AI evaluation call
+                  isLoading={evaluationLoading} 
                   evaluationResult={documentEvaluation}
                   sourceIdentifier={activeInputSourceIdentifier}
-                  onDocumentUploadedAndProcessed={handleDocumentOrTextProcessed} // Pass app's handler
-                  setAppIsLoading={setIsLoading} // Pass app's general loader state setters
+                  onDocumentUploadedAndProcessed={handleDocumentOrTextProcessed} 
+                  setAppIsLoading={setIsLoading} 
                   setAppLoadingMessage={setLoadingMessage}
                   setAppError={setError}
                />;
@@ -329,6 +329,7 @@ const App: React.FC = () => {
     icon: React.ElementType; 
     requiredMode?: AppMode; 
     disabled?: boolean;
+    // No specific icon colors here, will be handled by active/inactive state
   }
 
   const navItems: NavItem[] = useMemo(() => {
@@ -338,19 +339,19 @@ const App: React.FC = () => {
       { key: 'visualize', label: "Visualisasi", icon: ChartBarIcon, requiredMode: 'dataAnalysis' },
       { key: 'insights', label: "Wawasan", icon: LightBulbIcon, requiredMode: 'dataAnalysis' },
       { key: 'qa', label: "Tanya Jawab", icon: ChatBubbleLeftEllipsisIcon },
-      { key: 'evaluate', label: "Evaluasi", icon: ClipboardDocumentCheckIcon }, // No longer 'documentQa' requiredMode here, always enabled
+      { key: 'evaluate', label: "Evaluasi", icon: ClipboardDocumentCheckIcon }, 
     ];
 
     return baseItems.map((item): NavItem => {
       let isDisabled = false;
-      if (item.key !== 'input' && item.key !== 'evaluate') { // Evaluasi always enabled
+      if (item.key !== 'input' && item.key !== 'evaluate') { 
           if (item.requiredMode === 'dataAnalysis') {
               if (!parsedData || currentMode !== 'dataAnalysis') isDisabled = true;
-          } else if (item.requiredMode === 'documentQa') { // This might be unused now for evaluate
+          } else if (item.requiredMode === 'documentQa') { 
               if (!processedTextContent || currentMode !== 'documentQa') isDisabled = true;
           } else if (item.key === 'qa') { 
               if (currentMode === 'dataAnalysis' && !parsedData) isDisabled = true;
-              else if (currentMode === 'documentQa' && !processedTextContent && item.requiredMode !== 'dataAnalysis') isDisabled = true; // Check if not data analysis mode
+              else if (currentMode === 'documentQa' && !processedTextContent && item.requiredMode !== 'dataAnalysis') isDisabled = true; 
           }
       }
       return { ...item, disabled: isDisabled };
@@ -359,20 +360,41 @@ const App: React.FC = () => {
 
   const handleMenuClick = (key: ActiveSection) => {
     const item = navItems.find(i => i.key === key);
-    if (item && !item.disabled) {
-      if (activeSection === 'evaluate' && key !== 'evaluate') {
-        // setDocumentEvaluation(null); // Consider if this reset is still needed or handled differently
+    if (item) {
+      if (item.disabled) {
+        setToastConfig({
+          id: Date.now().toString(),
+          message: `Silakan input data terlebih dahulu untuk mengakses bagian "${item.label}".`,
+          type: 'warning',
+          action: {
+            label: 'Ke Halaman Input',
+            onClick: () => {
+              setActiveSection('input');
+              setToastConfig(null);
+            }
+          }
+        });
+      } else {
+        if (activeSection === 'evaluate' && key !== 'evaluate') {
+          // setDocumentEvaluation(null); 
+        }
+        if (key === 'evaluate' && !processedTextContent) {
+          setCurrentMode('documentQa');
+        }
+        setActiveSection(key);
+        setToastConfig(null); // Clear any existing toast
       }
-      // Jika pindah ke tab 'evaluate' dan belum ada dokumen, pastikan mode adalah 'documentQa'
-      if (key === 'evaluate' && !processedTextContent) {
-        setCurrentMode('documentQa');
-      }
-      setActiveSection(key);
     }
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-100">
+      {toastConfig && (
+          <ToastDisplay
+            config={toastConfig}
+            onClose={() => setToastConfig(null)}
+          />
+      )}
       <header 
         className="sticky top-0 z-50 w-full flex items-center justify-between px-4 sm:px-6 py-3 bg-white border-b border-slate-200 shadow-sm"
       >
@@ -409,21 +431,24 @@ const App: React.FC = () => {
             <button
               key={item.key}
               onClick={() => handleMenuClick(item.key)}
-              disabled={item.disabled}
+              disabled={item.disabled} // This still visually disables, toast adds behavior
               className={`flex flex-col items-center justify-center p-2 rounded-md w-1/5 text-xs sm:text-sm transition-colors duration-150
                 ${activeSection === item.key 
                   ? 'text-blue-600' 
-                  : 'text-slate-500 hover:text-blue-500'}
-                ${item.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100'}`}
+                  : item.disabled ? 'text-slate-400 cursor-not-allowed' : 'text-slate-600 hover:text-blue-500'}
+                ${item.disabled ? 'opacity-70 cursor-not-allowed' : 'hover:bg-slate-100'}`}
               aria-current={activeSection === item.key ? 'page' : undefined}
+              aria-disabled={item.disabled}
             >
-              <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-0.5 ${activeSection === item.key ? 'text-blue-600' : ''}`} />
+              <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-0.5 
+                ${activeSection === item.key ? 'text-blue-600' : item.disabled ? 'text-slate-400' : 'text-slate-600'}`} 
+              />
               {item.label}
             </button>
           ))}
         </nav>
       </footer>
-       <div className="text-center py-3 px-6 text-xs text-slate-500 bg-slate-100 mt-auto">
+       <div className="text-center py-3 px-6 text-xs text-slate-700 bg-slate-200 mt-auto">
          &copy; {new Date().getFullYear()} Bagas Wibowo. Hak Cipta Dilindungi.
       </div>
     </div>

@@ -28,7 +28,7 @@ interface DocumentEvaluatorProps {
   setAppError: (error: string | null) => void;
 }
 
-const MAX_FILE_SIZE_DOCUMENT = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE_DOCUMENT = 25 * 1024 * 1024; // 25MB
 
 export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
   originalContent,
@@ -84,20 +84,20 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
   };
 
   const handleInternalFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setAppError(null); // Clear global app error
+    setAppError(null); 
     setInternalFileError(null);
     setDocxWarning(false);
     const file = event.target.files?.[0];
 
     if (file) {
       if (file.size > MAX_FILE_SIZE_DOCUMENT) {
-        setInternalFileError(`Ukuran file melebihi batas maksimum (${(MAX_FILE_SIZE_DOCUMENT / (1024 * 1024)).toFixed(0)}MB).`);
+        setInternalFileError(`Ukuran file melebihi batas maksimum (${(MAX_FILE_SIZE_DOCUMENT / (1024 * 1024)).toFixed(0)} MB).`);
         setInternalSelectedFile(null);
         if (internalFileInputRef.current) internalFileInputRef.current.value = "";
         return;
       }
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      if (fileExtension === 'doc') { // Show warning for .doc
+      if (fileExtension === 'doc') { 
           setDocxWarning(true);
       }
       setInternalSelectedFile(file);
@@ -115,7 +115,7 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
     }
   };
 
-  const getDisplayFileIcon = (fileName: string): React.ElementType => {
+  const getDisplayFileIconElement = (fileName: string): React.ElementType => {
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'pdf': return PdfFileIcon;
@@ -124,7 +124,18 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
       default: return FileIconGeneric;
     }
   };
-  const SelectedInternalFileIcon = internalSelectedFile ? getDisplayFileIcon(internalSelectedFile.name) : null;
+   const getDisplayFileIconColor = (fileName: string): string => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'text-red-500';
+      case 'docx': case 'doc': return 'text-blue-500';
+      case 'txt': return 'text-slate-500';
+      default: return 'text-gray-500';
+    }
+  };
+
+  const SelectedInternalFileIconElement = internalSelectedFile ? getDisplayFileIconElement(internalSelectedFile.name) : null;
+  const selectedInternalFileIconColor = internalSelectedFile ? getDisplayFileIconColor(internalSelectedFile.name) : 'text-gray-500';
 
 
   const handleProcessInternalFile = useCallback(async () => {
@@ -133,34 +144,33 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
       return;
     }
     setInternalFileError(null);
-    setAppError(null); // Clear any global errors
-    setIsProcessingInternalFile(true); // Local loading state for file processing
-    setAppIsLoading(true); // Use app's global loading state as well for consistency
+    setAppError(null); 
+    setIsProcessingInternalFile(true); 
+    setAppIsLoading(true); 
     setAppLoadingMessage(`Mengekstrak teks dari ${internalSelectedFile.name}...`);
 
     try {
       const textContent = await extractTextFromFile(internalSelectedFile);
-      // Call the App's handler to update global state
-      onDocumentUploadedAndProcessed(textContent, internalSelectedFile.name, true); // true to navigate/stay on eval
-      setInternalSelectedFile(null); // Clear local file selection
+      onDocumentUploadedAndProcessed(textContent, internalSelectedFile.name, true); 
+      setInternalSelectedFile(null); 
       if (internalFileInputRef.current) internalFileInputRef.current.value = "";
     } catch (e) {
       console.error("Error processing document file internally:", e);
       const errorMsg = `Gagal memproses file dokumen: ${e instanceof Error ? e.message : String(e)}`;
-      setAppError(errorMsg); // Show error globally
-      setInternalFileError(errorMsg); // Also show locally if desired
+      setAppError(errorMsg); 
+      setInternalFileError(errorMsg); 
     } finally {
       setIsProcessingInternalFile(false);
-      setAppIsLoading(false); // Clear global loading
+      setAppIsLoading(false); 
     }
   }, [internalSelectedFile, onDocumentUploadedAndProcessed, setAppIsLoading, setAppLoadingMessage, setAppError]);
 
 
-  if (!originalContent && !isLoading) { // isLoading is for AI evaluation, isProcessingInternalFile for file upload
+  if (!originalContent && !isLoading) { 
     return (
       <div className="bg-white p-0 rounded-lg shadow-none min-h-[calc(100vh-250px)] space-y-6">
         <div className="text-lg font-semibold text-slate-800 flex items-center">
-          <ClipboardDocumentCheckIcon className="w-6 h-6 mr-2 text-blue-600" />
+          <ClipboardDocumentCheckIcon className="w-6 h-6 mr-2 text-fuchsia-600" />
           Evaluasi Dokumen
         </div>
         <p className="text-sm text-slate-600">
@@ -168,8 +178,8 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
         </p>
 
         {docxWarning && internalSelectedFile && (
-            <div className="my-4 p-3 rounded-md bg-yellow-50 border border-yellow-300 text-yellow-700 flex items-start space-x-2">
-                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+            <div className="my-4 p-3 rounded-md bg-yellow-50 border border-yellow-300 text-yellow-800 flex items-start space-x-2">
+                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div>
                     <h3 className="font-semibold text-sm">Catatan untuk file .doc</h3>
                     <p className="text-xs">Dukungan untuk format .doc (Word 97-2003) mungkin terbatas, terutama untuk file dengan tata letak kompleks. Hasil ekstraksi teks mungkin tidak sempurna. Untuk hasil terbaik, disarankan menggunakan format .docx atau .pdf.</p>
@@ -183,7 +193,7 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
             ${isProcessingInternalFile ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 bg-slate-50'}`}
         >
           <div className="space-y-1 text-center">
-            <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-slate-400" />
+            <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-slate-500" />
             <div className="flex text-sm text-slate-600">
               <span className="relative font-medium text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
                 Unggah file
@@ -191,7 +201,7 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
               <input id="internal-file-upload" name="internal-file-upload" type="file" className="sr-only" ref={internalFileInputRef} onChange={handleInternalFileChange} accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" disabled={isProcessingInternalFile} />
               <p className="pl-1">atau seret dan lepas</p>
             </div>
-            <p className="text-xs text-slate-500">.pdf, .docx, .doc, .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)}MB.</p>
+            <p className="text-xs text-slate-600">.pdf, .docx, .doc, .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)} MB.</p>
           </div>
         </label>
 
@@ -205,15 +215,15 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
           <div className="mt-4 p-3 border border-slate-200 rounded-md bg-slate-50">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                {SelectedInternalFileIcon && <SelectedInternalFileIcon className="h-8 w-8 text-blue-500" />}
+                {SelectedInternalFileIconElement && <SelectedInternalFileIconElement className={`h-8 w-8 ${selectedInternalFileIconColor}`} />}
                 <div>
                   <p className="text-sm font-medium text-slate-700 truncate max-w-xs sm:max-w-md">{internalSelectedFile.name}</p>
-                  <p className="text-xs text-slate-500">{(internalSelectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  <p className="text-xs text-slate-600">{(internalSelectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
                 </div>
               </div>
               <button 
                 onClick={handleRemoveInternalFile} 
-                className="p-1 text-slate-400 hover:text-red-500 rounded-full"
+                className="p-1 text-slate-500 hover:text-red-600 rounded-full"
                 aria-label="Hapus file"
                 title="Hapus file"
               >
@@ -244,27 +254,26 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
           </button>
         )}
          {!internalSelectedFile && !isProcessingInternalFile && (
-             <div className="mt-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 flex items-start space-x-2">
-                <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+             <div className="mt-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-800 flex items-start space-x-2">
+                <InformationCircleIcon className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs">Untuk memulai evaluasi, silakan pilih atau seret file dokumen ke area di atas.</p>
             </div>
          )}
       </div>
     );
   }
-  // If originalContent is available OR AI evaluation is loading, show evaluation UI
   return (
     <div className="bg-white p-0 rounded-lg shadow-none min-h-[calc(100vh-250px)] space-y-6">
       <div className="text-lg font-semibold text-slate-800 flex items-center">
-        <ClipboardDocumentCheckIcon className="w-6 h-6 mr-2 text-blue-600" />
+        <ClipboardDocumentCheckIcon className="w-6 h-6 mr-2 text-fuchsia-600" />
         Evaluasi Dokumen: {getContextName()}
       </div>
 
       {originalContent && (
           <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
             <h3 className="text-md font-semibold text-slate-700 mb-2">Konten Asli Dokumen:</h3>
-            <div className="prose prose-sm max-w-none h-48 overflow-y-auto bg-white p-3 rounded border border-slate-300">
-              <pre className="whitespace-pre-wrap break-words text-xs">{originalContent}</pre>
+            <div className="max-w-none h-48 overflow-y-auto bg-white p-3 rounded border border-slate-300">
+              <pre className="whitespace-pre-wrap break-words text-xs text-slate-900">{originalContent}</pre>
             </div>
           </div>
       )}
@@ -273,10 +282,10 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
         <button
           type="button"
           onClick={onEvaluate}
-          disabled={isLoading || !originalContent} // Disable if AI evaluation is loading OR no content
+          disabled={isLoading || !originalContent} 
           className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? ( // This is for AI evaluation loading
+          {isLoading ? ( 
             <>
               <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -306,9 +315,9 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
 
       {!evaluationResult && !isLoading && originalContent && (
          <div className="p-8 text-center bg-slate-50 rounded-lg">
-          <InformationCircleIcon className="w-16 h-16 text-blue-400 opacity-60 mx-auto mb-4" />
+          <InformationCircleIcon className="w-16 h-16 text-fuchsia-400 opacity-60 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-700 mb-2">Siap untuk Evaluasi</h3>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-600">
             Klik tombol di atas untuk mengevaluasi kualitas dokumen ini dan mendapatkan saran perbaikan beserta referensi dari internet.
           </p>
         </div>
