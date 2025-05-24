@@ -8,13 +8,12 @@ import {
   DocumentTextIcon,
   PencilSquareIcon,
   LinkIcon,
-  CheckCircleIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
   XCircleIcon,
-  DocumentDuplicateIcon, // Placeholder for Excel/general tabular
-  DocumentChartBarIcon, // Placeholder for PDF or complex docs
-  SparklesIcon // Placeholder for Word or rich text
+  DocumentDuplicateIcon, 
+  DocumentChartBarIcon, 
+  SparklesIcon 
 } from '@heroicons/react/24/outline';
 
 
@@ -69,7 +68,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
     setExternalError(null);
     setShowDocxSimulationWarning(false);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // Reset file input
+      fileInputRef.current.value = ""; 
     }
   };
 
@@ -109,15 +108,15 @@ export const InputSection: React.FC<InputSectionProps> = ({
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'csv': case 'tsv': case 'xls': case 'xlsx':
-        return DocumentDuplicateIcon; // Using this for tabular data
+        return DocumentDuplicateIcon; 
       case 'pdf':
-        return DocumentChartBarIcon; // Using this for PDF as it's often complex
+        return DocumentChartBarIcon; 
       case 'docx':
-        return SparklesIcon; // Using this for Word as it's rich text
+        return SparklesIcon; 
       case 'txt':
         return DocumentTextIcon;
       default:
-        return DocumentTextIcon; // Fallback
+        return DocumentTextIcon; 
     }
   };
 
@@ -154,14 +153,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
         const { headers, rows } = parseCSV(fileText, '\t');
         parsed = { headers, rows, columnInfos: [], rowCount: rows.length, columnCount: headers.length, sampleRows: [], fileName: file.name };
       } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        // parseExcel remains a mock for now, as full Excel parsing is heavy.
-        // If it were real, it would be: parsed = await parseExcel(file);
-        // For this Tailwind version, let's assume parseExcel works or this path won't be hit often by user.
-        // If parseExcel is a mock, we'll fall into the error.
-        // To make it "work" with mock, it should return a valid ParsedCsvData structure.
-        // For now, let's assume the simplified CSV path is taken, or if parseExcel is called, it's handled.
-        // The original parseExcel was a mock that tried to parse as CSV. Let's keep that behavior.
-        parsed = await parseExcel(file); // This mock still tries to parse as CSV
+        parsed = await parseExcel(file); 
       } else {
         throw new Error("Tipe file tabular tidak didukung.");
       }
@@ -278,8 +270,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
   return (
     <div className="w-full">
-      <div className="mb-6 border-b border-slate-200 dark:border-slate-700">
-        {/* Navigasi tab dibuat responsif */}
+      <div className="mb-6 border-b border-slate-200">
         <nav className="-mb-px flex flex-wrap gap-x-1 gap-y-1 sm:gap-x-2" aria-label="Tabs">
           {modeConfigs.map((tab) => (
             <button
@@ -289,8 +280,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
                 py-2 px-2 text-xs sm:py-2.5 sm:px-3 sm:text-sm 
                 border-b-2 font-medium transition-colors duration-150 flex items-center space-x-1 sm:space-x-1.5
                 ${activeMode === tab.key
-                  ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-500'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                 }`}
               aria-current={activeMode === tab.key ? 'page' : undefined}
             >
@@ -303,16 +294,16 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
       <div className="mt-2">
         <div className="flex items-center space-x-2 mb-1">
-            <currentConfig.icon className="w-7 h-7 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200">{currentConfig.title}</h2>
+            <currentConfig.icon className="w-7 h-7 text-blue-600" />
+            <h2 className="text-xl font-semibold text-slate-800">{currentConfig.title}</h2>
         </div>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{currentConfig.description}</p>
+        <p className="text-sm text-slate-600 mb-6">{currentConfig.description}</p>
 
         {activeMode === 'tabular' || activeMode === 'document' ? (
           <>
             {showDocxSimulationWarning && selectedFile && activeMode === 'document' && (
-                <div className="my-4 p-3 rounded-md bg-yellow-50 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-200 flex items-start space-x-2">
-                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                <div className="my-4 p-3 rounded-md bg-yellow-50 border border-yellow-300 text-yellow-700 flex items-start space-x-2">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
                     <div>
                         <h3 className="font-semibold text-sm">Perhatian</h3>
                         <p className="text-xs">Pemrosesan file .docx saat ini disimulasikan. Ringkasan dan tanya jawab akan didasarkan pada konten placeholder. Untuk hasil terbaik, gunakan file .txt, .pdf, atau input teks langsung.</p>
@@ -321,35 +312,35 @@ export const InputSection: React.FC<InputSectionProps> = ({
             )}
             <label
               htmlFor="file-upload"
-              className={`mt-2 flex justify-center items-center w-full h-48 px-6 pt-5 pb-6 border-2 border-slate-300 dark:border-slate-600 border-dashed rounded-md cursor-pointer
-                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 dark:hover:border-blue-500 bg-slate-50 dark:bg-slate-700/30'}`}
+              className={`mt-2 flex justify-center items-center w-full h-48 px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md cursor-pointer
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 bg-slate-50'}`}
             >
               <div className="space-y-1 text-center">
-                <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" />
-                <div className="flex text-sm text-slate-600 dark:text-slate-300">
-                  <span className="relative font-medium text-blue-600 dark:text-blue-400 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-slate-400" />
+                <div className="flex text-sm text-slate-600">
+                  <span className="relative font-medium text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
                     Unggah file
                   </span>
                   <input id="file-upload" name="file-upload" type="file" className="sr-only" ref={fileInputRef} onChange={handleFileChange} accept={currentConfig.acceptAttr} disabled={isLoading} />
                   <p className="pl-1">atau seret dan lepas</p>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{currentConfig.fileTypesText}</p>
+                <p className="text-xs text-slate-500">{currentConfig.fileTypesText}</p>
               </div>
             </label>
 
             {selectedFile && !isLoading && (
-              <div className="mt-4 p-3 border border-slate-200 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-slate-700/50">
+              <div className="mt-4 p-3 border border-slate-200 rounded-md bg-slate-50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    {SelectedFileIcon && <SelectedFileIcon className="h-8 w-8 text-blue-500 dark:text-blue-400" />}
+                    {SelectedFileIcon && <SelectedFileIcon className="h-8 w-8 text-blue-500" />}
                     <div>
-                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate max-w-xs sm:max-w-md">{selectedFile.name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                      <p className="text-sm font-medium text-slate-700 truncate max-w-xs sm:max-w-md">{selectedFile.name}</p>
+                      <p className="text-xs text-slate-500">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
                     </div>
                   </div>
                   <button 
                     onClick={handleRemoveFile} 
-                    className="p-1 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 rounded-full"
+                    className="p-1 text-slate-400 hover:text-red-500 rounded-full"
                     aria-label="Hapus file"
                     title="Hapus file"
                   >
@@ -377,10 +368,10 @@ export const InputSection: React.FC<InputSectionProps> = ({
               placeholder="Ketik atau tempel teks di sini..."
               rows={8}
               disabled={isLoading}
-              className="block w-full shadow-sm sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full shadow-sm sm:text-sm border-slate-300 rounded-md bg-white text-slate-900 focus:ring-blue-500 focus:border-blue-500"
             />
             <div className="mt-2 flex justify-between items-center">
-              <p className={`text-xs ${wordCount > MAX_WORDS ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
+              <p className={`text-xs ${wordCount > MAX_WORDS ? 'text-red-600' : 'text-slate-500'}`}>
                 Jumlah kata: {wordCount.toLocaleString('id-ID')} / {MAX_WORDS.toLocaleString('id-ID')}
               </p>
               <button
@@ -401,10 +392,10 @@ export const InputSection: React.FC<InputSectionProps> = ({
               onChange={handleWebsiteUrlChange}
               placeholder="Contoh: https://www.example.com/article"
               disabled={isLoading}
-              className="block w-full shadow-sm sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500 py-2.5 px-3"
+              className="block w-full shadow-sm sm:text-sm border-slate-300 rounded-md bg-white text-slate-900 focus:ring-blue-500 focus:border-blue-500 py-2.5 px-3"
             />
-             <div className="mt-3 p-3 rounded-md bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50 text-blue-700 dark:text-blue-300 flex items-start space-x-2">
-                <InformationCircleIcon className="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+             <div className="mt-3 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 flex items-start space-x-2">
+                <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-xs">Pengambilan konten website memiliki keterbatasan (misalnya karena CORS atau konten dinamis) dan mungkin tidak berfungsi untuk semua website. Jika gagal, coba salin teks dari website secara manual ke mode 'Teks Langsung'.</p>
             </div>
             <button
@@ -420,7 +411,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
         {isLoading && (
           <div className="mt-6 text-center">
-            <div className="inline-flex items-center space-x-2 text-slate-600 dark:text-slate-300">
+            <div className="inline-flex items-center space-x-2 text-slate-600">
               <svg className="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -431,14 +422,14 @@ export const InputSection: React.FC<InputSectionProps> = ({
         )}
 
         {(activeMode === 'tabular' || activeMode === 'document') && !selectedFile && !isLoading && (
-           <div className="mt-4 p-3 rounded-md bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50 text-blue-700 dark:text-blue-300 flex items-start space-x-2">
-              <InformationCircleIcon className="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+           <div className="mt-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 flex items-start space-x-2">
+              <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs">Untuk memulai, silakan pilih atau seret file ke area di atas sesuai dengan tipe yang diinginkan.</p>
           </div>
         )}
          {activeMode === 'website' && !websiteUrl && !isLoading && (
-             <div className="mt-4 p-3 rounded-md bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50 text-blue-700 dark:text-blue-300 flex items-start space-x-2">
-                <InformationCircleIcon className="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+             <div className="mt-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 flex items-start space-x-2">
+                <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-xs">Untuk memulai, masukkan URL website yang valid pada kolom di atas.</p>
             </div>
         )}

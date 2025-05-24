@@ -1,4 +1,4 @@
-import React, { useState, useMemo, createContext, useContext, useEffect } from 'react';
+import React, { useState, createContext, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
@@ -8,39 +8,23 @@ if (!rootElement) {
 }
 
 interface ThemeContextType {
-  themeMode: 'light' | 'dark';
-  toggleTheme: () => void;
+  // themeMode and toggleTheme are removed as dark mode is being eliminated.
+  // This context can be used for other theme-related props in the future if needed.
 }
 
-export const ThemeContext = createContext<ThemeContextType>({
-  themeMode: 'light',
-  toggleTheme: () => {},
-});
+export const ThemeContext = createContext<ThemeContextType>({});
 
 const ThemeWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Skrip FOUC di index.html sudah mengatur kelas pada <html>
-  // dan menormalkan localStorage.getItem('themeMode') menjadi 'light' atau 'dark'.
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(
-    () => (localStorage.getItem('themeMode') as 'light' | 'dark') || 'light' // Fallback ke 'light' jika localStorage masih kosong (seharusnya tidak terjadi)
-  );
+  // Dark mode logic is removed. Light mode is the default and only mode.
+  // The initial setup in index.html and body classes will handle light mode.
 
-  useEffect(() => {
-    // Efek ini menyinkronkan kelas pada <html> jika themeMode berubah melalui React state,
-    // dan juga memastikan localStorage selalu sinkron.
-    if (themeMode === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('themeMode', themeMode);
-  }, [themeMode]);
-
-  const toggleTheme = () => {
-    setThemeMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
-  };
+  // No themeMode state or toggleTheme function needed anymore.
+  // No useEffect needed to sync with localStorage or <html> class for dark mode.
 
   return (
-    <ThemeContext.Provider value={{ themeMode, toggleTheme }}>
+    // Provider still exists, can be used for other theme aspects if added later.
+    // Value is now an empty object as no theme-switching props are passed.
+    <ThemeContext.Provider value={{}}>
       {children}
     </ThemeContext.Provider>
   );

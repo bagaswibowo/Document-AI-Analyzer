@@ -1,6 +1,5 @@
 
 import React from 'react';
-// FIX: Ensure ColumnStats is correctly imported from ../types. This was indicated as a potential fix for downstream type errors.
 import { ParsedCsvData, ColumnInfo, ColumnStats } from '../types';
 import { 
   InformationCircleIcon, TagIcon, Squares2X2Icon, PresentationChartBarIcon, CircleStackIcon, ListBulletIcon, HashtagIcon, CalendarDaysIcon, CheckBadgeIcon, QuestionMarkCircleIcon
@@ -17,14 +16,14 @@ interface StatCardProps {
   iconColorClass?: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, iconColorClass = "text-blue-500 dark:text-blue-400" }) => (
-  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md flex items-center space-x-3 transition-colors duration-300">
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, iconColorClass = "text-blue-500" }) => (
+  <div className="bg-white p-4 rounded-lg shadow-md flex items-center space-x-3 transition-colors duration-300">
     <div className={`p-2 rounded-full bg-opacity-20 ${iconColorClass.replace('text-', 'bg-')}`}>
       <Icon className={`w-6 h-6 ${iconColorClass}`} />
     </div>
     <div>
-      <p className="text-sm text-slate-500 dark:text-slate-400">{title}</p>
-      <p className="text-xl font-semibold text-slate-700 dark:text-slate-200">{value}</p>
+      <p className="text-sm text-slate-500">{title}</p>
+      <p className="text-xl font-semibold text-slate-700">{value}</p>
     </div>
   </div>
 );
@@ -51,7 +50,7 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
     { title: 'Tipe Data', dataIndex: 'type', key: 'type', render: (type: string) => {
         const TypeIcon = getDataTypeIcon(type);
         return <div className="flex items-center space-x-1.5">
-                  <TypeIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <TypeIcon className="w-4 h-4 text-slate-500" />
                   <span className="capitalize">{type}</span>
                </div>;
       } 
@@ -69,67 +68,48 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Nama File" value={data.fileName.length > 20 ? `${data.fileName.substring(0,18)}...` : data.fileName} icon={InformationCircleIcon} />
-        <StatCard title="Jumlah Baris" value={data.rowCount.toLocaleString('id-ID')} icon={ListBulletIcon} iconColorClass="text-green-500 dark:text-green-400" />
-        <StatCard title="Jumlah Kolom" value={data.columnCount.toLocaleString('id-ID')} icon={Squares2X2Icon} iconColorClass="text-yellow-500 dark:text-yellow-400" />
-        <StatCard title="Ukuran Estimasi" value={`${(JSON.stringify(data.rows).length / 1024).toFixed(2)} KB`} icon={CircleStackIcon} iconColorClass="text-purple-500 dark:text-purple-400" />
+        <StatCard title="Jumlah Baris" value={data.rowCount.toLocaleString('id-ID')} icon={ListBulletIcon} iconColorClass="text-green-500" />
+        <StatCard title="Jumlah Kolom" value={data.columnCount.toLocaleString('id-ID')} icon={Squares2X2Icon} iconColorClass="text-yellow-500" />
+        <StatCard title="Ukuran Estimasi" value={`${(JSON.stringify(data.rows).length / 1024).toFixed(2)} KB`} icon={CircleStackIcon} iconColorClass="text-purple-500" />
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300 flex items-center">
-          <PresentationChartBarIcon className="w-6 h-6 mr-2 text-blue-500 dark:text-blue-400" />
+        <h3 className="text-lg font-semibold mb-3 text-slate-700 flex items-center">
+          <PresentationChartBarIcon className="w-6 h-6 mr-2 text-blue-500" />
           Informasi Kolom
         </h3>
-        <div className="overflow-x-auto bg-white dark:bg-slate-800 shadow rounded-lg">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-700">
+        <div className="overflow-x-auto bg-white shadow rounded-lg">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
               <tr>
                 {columnInfoColumns.map(col => (
-                  <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                  <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     {col.title}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+            <tbody className="bg-white divide-y divide-slate-200">
               {data.columnInfos.map((info, rowIndex) => (
-                <tr key={info.name} className={`${rowIndex % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/50'} hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors`}>
+                <tr key={info.name} className={`${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-slate-100 transition-colors`}>
                   {columnInfoColumns.map(col => (
-                    <td key={col.key} className="px-4 py-3 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
-                      {/* FIX: Safely access properties from info and info.stats using typed keys */}
+                    <td key={col.key} className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
                       {(() => {
-                        const dataIndexStr = col.dataIndex as string; // dataIndex is a string from the column definition
-                        // Let TypeScript infer the type of valueToRenderOrDisplay.
-                        // Explicitly typing as 'any' can sometimes lead to obscure errors like 'not assignable to never'
-                        // if the 'any' interacts poorly with type inference in later stages.
+                        const dataIndexStr = col.dataIndex as string; 
                         let valueToRenderOrDisplay;
 
-                        // Check if dataIndexStr is a key of info.stats (and an own property)
                         if (Object.prototype.hasOwnProperty.call(info.stats, dataIndexStr)) {
                            valueToRenderOrDisplay = info.stats[dataIndexStr as keyof ColumnStats];
                         } 
-                        // Else, check if dataIndexStr is a key of info (and an own property)
                         else if (Object.prototype.hasOwnProperty.call(info, dataIndexStr)) {
                            valueToRenderOrDisplay = info[dataIndexStr as keyof ColumnInfo];
                         } else {
-                           // Fallback if dataIndex is somehow not found (should not happen with current config)
                            valueToRenderOrDisplay = undefined;
                         }
 
                         if (col.render) {
-                          // The render function expects the specific value and optionally the full record.
-                          // The type of valueToRenderOrDisplay will be specific to the dataIndexStr.
-                          // FIX: Cast col.render to `any` to resolve "Argument of type 'any' is not assignable to parameter of type 'never'".
-                          // This error occurs because `col` is a union of different column definitions, making `col.render` a union
-                          // of function types. TypeScript then intersects the parameter types, resulting in `never`.
-                          // The logic for `valueToRenderOrDisplay` ensures it's appropriate for the specific `col.render`.
                           return (col.render as any)(valueToRenderOrDisplay, info);
                         } else {
-                          // Default rendering for columns without a specific render function (e.g., 'name')
-                          // FIX: Ensure String conversion is safe. Given valueToRenderOrDisplay can be various types from ColumnInfo/ColumnStats,
-                          // or undefined, `?? '-` handles undefined/null, and String() handles the rest.
-                          // The 'never' error was likely a symptom of the missing ColumnStats type, making type inference problematic.
-                          // With ColumnStats correctly imported and typed, valueToRenderOrDisplay should not be 'any' in a problematic way,
-                          // and String() should handle its conversion correctly.
                           return String(valueToRenderOrDisplay ?? '-');
                         }
                       })()}
@@ -143,27 +123,27 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
       </div>
       
       <div>
-        <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300 flex items-center">
-          <ListBulletIcon className="w-6 h-6 mr-2 text-blue-500 dark:text-blue-400" />
+        <h3 className="text-lg font-semibold mb-3 text-slate-700 flex items-center">
+          <ListBulletIcon className="w-6 h-6 mr-2 text-blue-500" />
           Data Sampel (10 Baris Pertama)
         </h3>
         {data.sampleRows.length > 0 ? (
-          <div className="overflow-x-auto bg-white dark:bg-slate-800 shadow rounded-lg">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-              <thead className="bg-slate-50 dark:bg-slate-700">
+          <div className="overflow-x-auto bg-white shadow rounded-lg">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
                 <tr>
                   {sampleDataColumns.map(col => (
-                    <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider truncate max-w-[150px]" title={col.title}>
+                    <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wider truncate max-w-[150px]" title={col.title}>
                       {col.title}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+              <tbody className="bg-white divide-y divide-slate-200">
                 {data.sampleRows.map((row, rowIndex) => (
-                  <tr key={rowIndex} className={`${rowIndex % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/50'} hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors`}>
+                  <tr key={rowIndex} className={`${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-slate-100 transition-colors`}>
                     {data.headers.map(header => (
-                      <td key={`${rowIndex}-${header}`} className="px-4 py-3 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300 truncate max-w-[150px]" title={String(row[header] ?? '-')}>
+                      <td key={`${rowIndex}-${header}`} className="px-4 py-3 whitespace-nowrap text-xs text-slate-600 truncate max-w-[150px]" title={String(row[header] ?? '-')}>
                         {String(row[header] ?? '-')}
                       </td>
                     ))}
@@ -173,7 +153,7 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada data sampel untuk ditampilkan.</p>
+          <p className="text-sm text-slate-500">Tidak ada data sampel untuk ditampilkan.</p>
         )}
       </div>
     </div>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -12,7 +13,6 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
         'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
-      /* Default light mode background, Tailwind's dark:bg- خواهد آن را لغو کند */
     }
     /* Ensure root takes full height */
     #root {
@@ -20,11 +20,7 @@
       display: flex; /* Added for App.tsx flex structure */
       flex-direction: column; /* Added for App.tsx flex structure */
     }
-    /* Tailwind dark mode setup */
-    .dark {
-      /* Dark mode variables can be defined here or rely on Tailwind's defaults */
-    }
-     /* More specific scrollbar styling if needed, or remove for browser default */
+    /* Light mode scrollbar styling */
     ::-webkit-scrollbar {
       width: 8px;
       height: 8px;
@@ -32,21 +28,12 @@
     ::-webkit-scrollbar-track {
       background: #f1f1f1;
     }
-    .dark ::-webkit-scrollbar-track {
-      background: #2d3748; /* gray-800 */
-    }
     ::-webkit-scrollbar-thumb {
       background: #c1c1c1; /* gray-400 */
       border-radius: 4px;
     }
-    .dark ::-webkit-scrollbar-thumb {
-      background: #718096; /* gray-500 */
-    }
     ::-webkit-scrollbar-thumb:hover {
       background: #a8a8a8; /* gray-500 */
-    }
-    .dark ::-webkit-scrollbar-thumb:hover {
-      background: #a0aec0; /* gray-400 */
     }
   </style>
 <script type="importmap">
@@ -77,22 +64,11 @@
     }
   })();
 
-  // Skrip untuk menerapkan kelas 'dark' ke <html> berdasarkan localStorage
-  // dan menormalkan nilai localStorage.
-  let currentTheme = localStorage.getItem('themeMode');
-  if (currentTheme === 'dark') {
-    document.documentElement.classList.add('dark');
-  } else {
-    // Default ke light mode jika tidak 'dark' (termasuk null atau 'light' atau lainnya)
-    document.documentElement.classList.remove('dark');
-    // Pastikan localStorage juga disetel ke 'light' jika belum 'light' atau 'dark'
-    if (currentTheme !== 'light') {
-      localStorage.setItem('themeMode', 'light');
-    }
-  }
+  // Dark mode script removed. Light mode is default.
+  // localStorage 'themeMode' is no longer used.
 </script>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-200 transition-colors duration-300">
+<body class="bg-slate-100 text-slate-900 transition-colors duration-300">
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>

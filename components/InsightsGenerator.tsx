@@ -1,7 +1,7 @@
-import React, { useState, useContext } from 'react';
-import { ThemeContext } from '../index'; // Only for isDarkMode, not for AntD token
+import React, { useState } from 'react';
+// ThemeContext removed
 import ReactMarkdown from 'react-markdown';
-import { LightBulbIcon, BeakerIcon, InformationCircleIcon } from '@heroicons/react/24/outline'; // Beaker for Experiment
+import { LightBulbIcon, BeakerIcon } from '@heroicons/react/24/outline'; 
 
 interface InsightsGeneratorProps {
   onGenerateInsights: () => Promise<string>;
@@ -11,35 +11,32 @@ interface InsightsGeneratorProps {
 export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerateInsights, isLoading }) => {
   const [insights, setInsights] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { themeMode } = useContext(ThemeContext);
-  const isDarkMode = themeMode === 'dark';
+  // themeMode and isDarkMode removed
 
-
-  // Tailwind's typography plugin handles most styling. Add custom styles if needed.
   const MarkdownComponents = {
-      h1: ({node, ...props}: any) => <h1 className="text-2xl font-bold my-4 text-blue-600 dark:text-blue-400 border-b pb-2 border-slate-300 dark:border-slate-600" {...props} />,
-      h2: ({node, ...props}: any) => <h2 className="text-xl font-semibold my-3 text-slate-700 dark:text-slate-300" {...props} />,
-      h3: ({node, ...props}: any) => <h3 className="text-lg font-medium my-2 text-slate-600 dark:text-slate-400" {...props} />,
-      p: ({node, ...props}: any) => <p className="my-2 leading-relaxed text-slate-700 dark:text-slate-300" {...props} />,
-      ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-2 space-y-1 text-slate-700 dark:text-slate-300" {...props} />,
-      ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-2 space-y-1 text-slate-700 dark:text-slate-300" {...props} />,
-      li: ({node, ...props}: any) => <li className="text-slate-700 dark:text-slate-300" {...props} />,
-      strong: ({node, ...props}: any) => <strong className="font-semibold text-slate-800 dark:text-slate-200" {...props} />,
-      em: ({node, ...props}: any) => <em className="italic text-slate-600 dark:text-slate-400" {...props} />,
-      a: ({node, ...props}: any) => <a className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer" {...props} />,
+      h1: ({node, ...props}: any) => <h1 className="text-2xl font-bold my-4 text-blue-600 border-b pb-2 border-slate-300" {...props} />,
+      h2: ({node, ...props}: any) => <h2 className="text-xl font-semibold my-3 text-slate-700" {...props} />,
+      h3: ({node, ...props}: any) => <h3 className="text-lg font-medium my-2 text-slate-600" {...props} />,
+      p: ({node, ...props}: any) => <p className="my-2 leading-relaxed text-slate-700" {...props} />,
+      ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-2 space-y-1 text-slate-700" {...props} />,
+      ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-2 space-y-1 text-slate-700" {...props} />,
+      li: ({node, ...props}: any) => <li className="text-slate-700" {...props} />,
+      strong: ({node, ...props}: any) => <strong className="font-semibold text-slate-800" {...props} />,
+      em: ({node, ...props}: any) => <em className="italic text-slate-600" {...props} />,
+      a: ({node, ...props}: any) => <a className="text-blue-600 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer" {...props} />,
       code: ({node, inline, className, children, ...props}: any) => {
         const match = /language-(\w+)/.exec(className || '');
         return !inline ? (
-          <pre className={`my-3 p-3 rounded-md bg-slate-100 dark:bg-slate-700 overflow-x-auto text-sm ${className || ''}`} {...props}>
+          <pre className={`my-3 p-3 rounded-md bg-slate-100 overflow-x-auto text-sm ${className || ''}`} {...props}>
             <code className={`language-${match ? match[1] : 'text'}`}>{String(children).replace(/\n$/, '')}</code>
           </pre>
         ) : (
-          <code className="px-1 py-0.5 bg-slate-200 dark:bg-slate-600 rounded text-sm text-pink-600 dark:text-pink-400" {...props}>
+          <code className="px-1 py-0.5 bg-slate-200 rounded text-sm text-pink-600" {...props}>
             {children}
           </code>
         );
       },
-      blockquote: ({node, ...props}: any) => <blockquote className="my-2 pl-4 border-l-4 border-slate-300 dark:border-slate-600 italic text-slate-600 dark:text-slate-400" {...props} />,
+      blockquote: ({node, ...props}: any) => <blockquote className="my-2 pl-4 border-l-4 border-slate-300 italic text-slate-600" {...props} />,
   };
 
 
@@ -60,9 +57,9 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
   };
   
   return (
-    <div className="bg-white dark:bg-slate-800 p-0 rounded-lg shadow-none min-h-[calc(100vh-250px)]"> {/* No internal padding, App.tsx handles it */}
-      <div className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-6 flex items-center">
-        <LightBulbIcon className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
+    <div className="bg-white p-0 rounded-lg shadow-none min-h-[calc(100vh-250px)]">
+      <div className="text-lg font-semibold text-slate-800 mb-6 flex items-center">
+        <LightBulbIcon className="w-6 h-6 mr-2 text-blue-600" />
         Wawasan Berbasis AI (Data Tabular)
       </div>
       
@@ -91,24 +88,24 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
       </div>
 
       {error && (
-        <div className="mb-4 p-4 rounded-md bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-200" role="alert">
+        <div className="mb-4 p-4 rounded-md bg-red-50 border border-red-200 text-red-700" role="alert">
             <h3 className="font-semibold">Error</h3>
             <p className="text-sm">{error}</p>
         </div>
       )}
       
       {insights && !isLoading && (
-        <div className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+        <div className="prose prose-sm sm:prose-base lg:prose-lg max-w-none p-4 border border-slate-200 rounded-lg bg-slate-50">
           <ReactMarkdown components={MarkdownComponents}>
             {insights}
           </ReactMarkdown>
         </div>
       )}
       {!insights && !isLoading && !error && (
-         <div className="p-8 text-center bg-slate-50 dark:bg-slate-700/30 rounded-lg">
-          <LightBulbIcon className="w-16 h-16 text-blue-400 dark:text-blue-500 opacity-60 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Klik tombol di atas untuk menghasilkan wawasan.</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+         <div className="p-8 text-center bg-slate-50 rounded-lg">
+          <LightBulbIcon className="w-16 h-16 text-blue-400 opacity-60 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-slate-700 mb-2">Klik tombol di atas untuk menghasilkan wawasan.</h3>
+          <p className="text-sm text-slate-500">
             Temukan pola, anomali, dan observasi menarik dalam dataset Anda.
           </p>
         </div>

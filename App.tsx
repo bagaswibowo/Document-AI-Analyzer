@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useContext } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { InputSection } from './components/InputSection';
 import { DataOverview } from './components/DataOverview';
 import { DataVisualizer } from './components/DataVisualizer';
@@ -7,7 +7,7 @@ import { QAChat } from './components/QAChat';
 import { ParsedCsvData } from './types';
 import { analyzeColumns, SupportedCalculation as SupportedCalculationType } from './services/dataAnalysisService';
 import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest } from './services/geminiService';
-import { ThemeContext } from './index';
+// ThemeContext and theme icons (SunIcon, MoonIcon) are removed
 
 import {
   ArrowDownTrayIcon,
@@ -16,8 +16,6 @@ import {
   LightBulbIcon,
   ChatBubbleLeftEllipsisIcon,
   ExclamationTriangleIcon,
-  SunIcon,
-  MoonIcon,
   XCircleIcon,
 } from '@heroicons/react/24/outline';
 
@@ -76,7 +74,7 @@ const App: React.FC = () => {
   const [currentMode, setCurrentMode] = useState<AppMode>('dataAnalysis'); 
 
   const dataSummaryForAI = useMemo(() => formatDataSummaryForAI(parsedData), [parsedData]);
-  const { themeMode, toggleTheme } = useContext(ThemeContext);
+  // themeMode and toggleTheme removed
 
   const resetAppStateForNewInput = () => {
     setParsedData(null);
@@ -224,9 +222,9 @@ const App: React.FC = () => {
   }, [parsedData, processedTextContent, currentMode, dataSummaryForAI]);
   
   const commonDisabledMessage = (
-    <div className="text-center p-8 mt-4 bg-white dark:bg-slate-800 rounded-lg shadow">
+    <div className="text-center p-8 mt-4 bg-white rounded-lg shadow">
       <ExclamationTriangleIcon className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-      <h2 className="text-xl font-semibold mb-4 text-slate-700 dark:text-slate-300">
+      <h2 className="text-xl font-semibold mb-4 text-slate-700">
         Silakan input data, dokumen, atau URL terlebih dahulu untuk mengakses bagian ini.
       </h2>
       <button
@@ -321,46 +319,38 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-100 dark:bg-slate-900">
+    <div className="flex flex-col min-h-screen bg-slate-100">
       <header 
-        className="sticky top-0 z-50 w-full flex items-center justify-between px-4 sm:px-6 py-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm"
+        className="sticky top-0 z-50 w-full flex items-center justify-between px-4 sm:px-6 py-3 bg-white border-b border-slate-200 shadow-sm"
       >
-        <h1 className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 truncate">
+        <h1 className="text-xl sm:text-2xl font-bold text-blue-600 truncate">
           Penganalisis Data & Dokumen Gemini
         </h1>
-        <button 
-          onClick={toggleTheme} 
-          className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-          aria-label="Toggle theme"
-          title={themeMode === 'dark' ? "Ganti ke mode terang" : "Ganti ke mode gelap"}
-        >
-          {themeMode === 'dark' ? <SunIcon className="w-6 h-6" /> : <MoonIcon className="w-6 h-6" />}
-        </button>
+        {/* Theme toggle button removed */}
       </header>
       
       <main className="flex-grow p-4 sm:p-6 overflow-y-auto mb-20"> {/* mb-20 for footer space */}
         {error && (
           <div
-            className="mb-4 p-4 rounded-md bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-200 flex items-start justify-between break-words"
+            className="mb-4 p-4 rounded-md bg-red-50 border border-red-200 text-red-700 flex items-start justify-between break-words"
             role="alert"
           >
             <div>
                 <h3 className="font-semibold">Error</h3>
                 <p className="text-sm">{error}</p>
             </div>
-            <button onClick={() => setError(null)} className="ml-2 p-1 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-100 rounded-full focus:outline-none focus:ring-2 focus:ring-red-500">
+            <button onClick={() => setError(null)} className="ml-2 p-1 text-red-500 hover:text-red-700 rounded-full focus:outline-none focus:ring-2 focus:ring-red-500">
                 <XCircleIcon className="w-5 h-5" />
             </button>
           </div>
         )}
-        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-lg shadow-lg min-h-[calc(100vh-250px)]">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg min-h-[calc(100vh-250px)]">
           {renderSection()}
         </div>
       </main>
       
       <footer 
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-top"
-        // shadow-top is a custom class you might define or use a similar Tailwind utility
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-top"
       >
         <nav className="flex justify-around items-center h-16 max-w-2xl mx-auto px-2">
           {navItems.map(item => (
@@ -370,18 +360,18 @@ const App: React.FC = () => {
               disabled={item.disabled}
               className={`flex flex-col items-center justify-center p-2 rounded-md w-1/5 text-xs sm:text-sm transition-colors duration-150
                 ${activeSection === item.key 
-                  ? 'text-blue-600 dark:text-blue-400' 
-                  : 'text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-300'}
-                ${item.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                  ? 'text-blue-600' 
+                  : 'text-slate-500 hover:text-blue-500'}
+                ${item.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100'}`}
               aria-current={activeSection === item.key ? 'page' : undefined}
             >
-              <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-0.5 ${activeSection === item.key ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+              <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-0.5 ${activeSection === item.key ? 'text-blue-600' : ''}`} />
               {item.label}
             </button>
           ))}
         </nav>
       </footer>
-       <div className="text-center py-3 px-6 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 mt-auto">
+       <div className="text-center py-3 px-6 text-xs text-slate-500 bg-slate-100 mt-auto">
          &copy; {new Date().getFullYear()} Bagas Wibowo. Hak Cipta Dilindungi.
       </div>
     </div>
