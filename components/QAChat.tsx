@@ -31,10 +31,10 @@ export const QAChat: React.FC<QAChatProps> = ({
   
 
   const ChatMarkdownComponents = {
-      p: ({node, ...props}: any) => <p className="mb-1 break-words text-sm" {...props} />,
-      ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-1 text-sm" {...props} />,
-      ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-1 text-sm" {...props} />,
-      li: ({node, ...props}: any) => <li className="mb-0.5 text-sm" {...props} />,
+      p: ({node, ...props}: any) => <p className="mb-1 break-words text-sm text-current" {...props} />,
+      ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-1 text-sm text-current" {...props} />,
+      ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-1 text-sm text-current" {...props} />,
+      li: ({node, ...props}: any) => <li className="mb-0.5 text-sm text-current" {...props} />,
       a: ({node, ...props}: any) => {
           // Cek apakah link ini berada dalam pesan pengguna
           const isUserMessageLink = node.position?.start.line !== undefined && messages.find(msg => msg.sender === 'user' && msg.text.includes(node.properties.href));
@@ -43,7 +43,7 @@ export const QAChat: React.FC<QAChatProps> = ({
             target="_blank" rel="noopener noreferrer" {...props} 
           />;
       },
-      strong: ({node, ...props}: any) => <strong className="font-semibold" {...props} />, // Warna akan di-inherit
+      strong: ({node, ...props}: any) => <strong className="font-semibold text-current" {...props} />,
       code: ({node, inline, className, children, ...props}: any) => {
         // Untuk block code, parent akan menentukan warna teks (user: putih, ai: hitam)
         const parentMessage = messages.find(msg => {
