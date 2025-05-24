@@ -1,7 +1,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 
 // Fungsi untuk membersihkan string dari karakter yang berpotensi merusak JSON
 function sanitizeStringForJSON(str: string | undefined | null): string {
