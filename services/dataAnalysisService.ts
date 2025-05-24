@@ -264,6 +264,63 @@ export const extractTextFromFile = async (file: File): Promise<string> => {
   throw new Error(`Tipe file .${fileType} tidak didukung untuk ekstraksi teks langsung.`);
 };
 
+
+export const fetchWebsiteContent = async (url: string): Promise<string> => {
+  // URL ke Serverless Function Anda di Vercel.
+  // Parameter 'url' di-encode dengan benar.
+  const proxyUrl = `/api/fetch-website-proxy?url=${encodeURIComponent(url)}`;
+
+  try {
+    console.log(`Frontend: Meminta konten dari proxy: ${proxyUrl}`);
+    const response = await fetch(proxyUrl);
+
+    if (!response.ok) {
+      let errorMessage = `Gagal mengambil konten dari URL melalui proxy: Status ${response.status} ${response.statusText}.`;
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.error) {
+          errorMessage += ` Detail dari server proxy: ${errorData.error}`;
+        } else {
+          errorMessage += ` Respons dari server proxy tidak berisi detail error dalam format JSON yang diharapkan.`;
+        }
+      } catch (jsonError) {
+        errorMessage += ` Gagal mem-parsing pesan error JSON dari server proxy.`;
+      }
+      console.error("Frontend: " + errorMessage);
+      // Lempar error yang akan ditangkap oleh handler di InputSection.tsx
+      throw new Error(errorMessage + " Pastikan Serverless Function Anda (/api/fetch-website-proxy) berjalan dengan benar dan URL target dapat diakses dari server. Anda juga bisa mencoba menyalin teks dari website secara manual.");
+    }
+
+    const data = await response.json();
+
+    if (!data || typeof data.extractedText !== 'string') {
+       console.error("Frontend: Respons dari proxy tidak valid atau tidak berisi 'extractedText'. Data:", data);
+      throw new Error("Respons dari proxy Serverless Function tidak valid atau tidak berisi 'extractedText'. Pastikan fungsi mengembalikan format JSON yang benar: { extractedText: '...' }.");
+    }
+    
+    if (!data.extractedText.trim()) {
+        console.log("Frontend: Proxy mengembalikan teks kosong.");
+        return "Tidak ada konten teks yang signifikan yang dapat diekstrak dari website ini melalui proxy.";
+    }
+
+    console.log("Frontend: Konten berhasil diterima dari proxy.");
+    return data.extractedText;
+
+  } catch (error) {
+    console.error('Frontend: Error saat mengambil konten website via proxy:', error);
+    if (error instanceof Error) {
+        // Jika error sudah merupakan pesan yang informatif dari blok try di atas, lempar kembali
+        if (error.message.includes("proxy") || error.message.includes("Serverless Function")) {
+            throw error;
+        }
+        // Untuk error jaringan umum saat menghubungi proxy
+        throw new Error(`Gagal menghubungi proxy Serverless Function di ${proxyUrl}. Error: ${error.message}. Pastikan Serverless Function Anda telah di-deploy dan dapat diakses.`);
+    }
+    throw new Error('Terjadi kesalahan yang tidak diketahui saat mengambil konten website melalui proxy Serverless Function.');
+  }
+};
+
+
 // Helper untuk mendapatkan nilai dari kolom, dengan opsi konversi ke numerik
 export const getColumnValues = (
   rows: DataRow[],

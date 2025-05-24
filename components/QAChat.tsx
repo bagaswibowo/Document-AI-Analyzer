@@ -1,33 +1,59 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { ChatMessage } from '../types';
-import { Card } from './common/Card';
-import { Spinner } from './common/Spinner';
-import { PaperAirplaneIcon, UserCircleIcon, CpuChipIcon, ChatBubbleLeftRightIcon, DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import ReactMarkdown from 'react-markdown';
 import type { AppMode } from '../App';
+import { ThemeContext } from '../index';
+import ReactMarkdown from 'react-markdown';
+import { 
+  PaperAirplaneIcon, UserIcon, SparklesIcon, ChatBubbleLeftEllipsisIcon, DocumentTextIcon
+} from '@heroicons/react/24/solid'; // Use solid for main action icons
 
 interface QAChatProps {
   onQuery: (question: string) => Promise<string>;
   isLoading: boolean;
   currentMode: AppMode;
   documentSummary?: string | null;
-  processedTextContent?: string | null; // To check if content is available for documentQa mode
-  fileName?: string; // For tabular data filename
+  processedTextContent?: string | null; 
+  sourceIdentifier?: string; 
 }
+
 
 export const QAChat: React.FC<QAChatProps> = ({ 
     onQuery, 
     isLoading, 
     currentMode, 
     documentSummary,
-    processedTextContent,
-    fileName 
+    sourceIdentifier 
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState<string>('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { themeMode } = useContext(ThemeContext);
+  const isDarkMode = themeMode === 'dark';
+
+  const ChatMarkdownComponents = {
+      p: ({node, ...props}: any) => <p className="mb-1 break-words text-sm" {...props} />,
+      ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-1 text-sm" {...props} />,
+      ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-1 text-sm" {...props} />,
+      li: ({node, ...props}: any) => <li className="mb-0.5 text-sm" {...props} />,
+      a: ({node, ...props}: any) => <a className="text-blue-500 hover:underline text-sm" target="_blank" rel="noopener noreferrer" {...props} />,
+      strong: ({node, ...props}: any) => <strong className="font-semibold text-sm" {...props} />,
+      code: ({node, inline, className, children, ...props}: any) => {
+        return !inline ? (
+          <pre className={`my-1 p-2 rounded bg-slate-200 dark:bg-slate-700 overflow-x-auto text-xs ${className || ''}`} {...props}>
+            <code>{String(children).replace(/\n$/, '')}</code>
+          </pre>
+        ) : (
+          <code className="px-1 py-0.5 bg-slate-200 dark:bg-slate-600 rounded text-xs text-pink-600 dark:text-pink-400" {...props}>
+            {children}
+          </code>
+        );
+      },
+  };
+  const SummaryMarkdownComponents = {
+      p: ({node, ...props}: any) => <p className="leading-normal text-slate-600 dark:text-slate-400 text-xs m-0" {...props} />,
+      ul: ({node, ...props}: any) => <ul className="list-disc pl-3 my-0.5 text-xs text-slate-600 dark:text-slate-400" {...props} />,
+  };
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,12 +63,11 @@ export const QAChat: React.FC<QAChatProps> = ({
 
   useEffect(() => {
     inputRef.current?.focus();
-  }, [currentMode]); // Refocus when mode changes
+  }, [currentMode, isLoading]); 
 
-  // Clear messages if the context (data/document) changes
   useEffect(() => {
     setMessages([]);
-  }, [currentMode, fileName, processedTextContent]);
+  }, [currentMode, sourceIdentifier]);
 
 
   const handleSendMessage = async () => {
@@ -79,113 +104,140 @@ export const QAChat: React.FC<QAChatProps> = ({
     }
   };
 
-  const cardTitle = currentMode === 'dataAnalysis' 
-    ? `Tanya Jawab Data: ${fileName || 'Dataset Anda'}`
-    : "Tanya Jawab Dokumen/Teks";
+  const getContextName = () => {
+    if (currentMode === 'dataAnalysis') {
+      return sourceIdentifier || 'Dataset Anda';
+    }
+    if (currentMode === 'documentQa') {
+      if (sourceIdentifier?.toLowerCase().startsWith('http')) {
+        try { return `Website (${new URL(sourceIdentifier).hostname})`; }
+        catch { return sourceIdentifier || 'URL Anda';}
+      }
+      return sourceIdentifier || 'Dokumen/Teks Anda';
+    }
+    return 'Konteks Anda';
+  }
+
+  const cardTitleText = `Tanya Jawab: ${getContextName()}`;
   
   const placeholderText = currentMode === 'dataAnalysis'
-    ? "Tanya tentang data Anda... (mis. 'rata-rata penjualan')"
-    : "Tanya tentang konten dokumen/teks ini...";
+    ? "Tanya tentang data Anda..."
+    : `Tanya tentang ${getContextName()}...`;
 
-  const initialMessage = currentMode === 'dataAnalysis'
-    ? { text: "Ajukan pertanyaan tentang dataset Anda.", example: "Contoh: 'Berapa nilai rata-rata di kolom \"Penjualan\"?'" }
-    : { text: "Ajukan pertanyaan tentang konten yang telah Anda berikan.", example: "Contoh: 'Apa poin utama dari teks ini?'" };
+  const initialMessageText = currentMode === 'dataAnalysis'
+    ? `Ajukan pertanyaan tentang dataset "${getContextName()}".`
+    : `Ajukan pertanyaan tentang konten dari ${getContextName()} yang telah Anda berikan.`;
+  
+  const initialMessageExample = currentMode === 'dataAnalysis'
+    ? "Contoh: 'Berapa nilai rata-rata di kolom Penjualan?'"
+    : "Contoh: 'Apa poin utama dari konten ini?'";
 
 
   return (
-    <Card title={cardTitle} icon={ChatBubbleLeftRightIcon}>
+    <div className="bg-white dark:bg-slate-800 p-0 rounded-lg shadow-none flex flex-col h-full min-h-[500px]"> {/* No internal padding, App.tsx handles it */}
+      <div className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center p-4 border-b border-slate-200 dark:border-slate-700">
+        <ChatBubbleLeftEllipsisIcon className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
+        {cardTitleText}
+      </div>
+
       {currentMode === 'documentQa' && documentSummary && (
-        <div className="mb-4 p-4 bg-slate-700 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-primary-400 mb-2 flex items-center">
-            <DocumentMagnifyingGlassIcon className="h-6 w-6 mr-2"/>
-            Ringkasan Konten
-          </h3>
-          <div className="prose prose-sm prose-invert max-w-none max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-700">
-             <ReactMarkdown
-                components={{
-                    p: ({node, ...props}) => <p className="text-sm text-slate-300 my-1" {...props} />,
-                    ul: ({node, ...props}) => <ul className="list-disc list-outside ml-4 text-sm text-slate-300 my-1 space-y-0.5" {...props} />,
-                }}
-             >{documentSummary}</ReactMarkdown>
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
+          <div className="flex items-center mb-1">
+              <DocumentTextIcon className="w-5 h-5 mr-2 text-blue-500 dark:text-blue-400" />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Ringkasan Konten
+              </span>
+          </div>
+          <div className="max-h-24 overflow-y-auto prose prose-xs dark:prose-invert">
+           <ReactMarkdown components={SummaryMarkdownComponents}>{documentSummary}</ReactMarkdown>
           </div>
         </div>
       )}
-      <div className="flex flex-col h-[calc(65vh - 100px)] min-h-[350px] max-h-[550px] bg-slate-750 rounded-lg shadow-inner overflow-hidden">
-        <div className="flex-grow p-4 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-750">
+      
+      <div className="flex-grow flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-700/30">
+        <div className="flex-grow p-4 space-y-4 overflow-y-auto">
           {messages.length === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400">
-              <ChatBubbleLeftRightIcon className="h-16 w-16 mb-4 opacity-50" />
-              <p className="text-lg">{initialMessage.text}</p>
-              <p className="text-sm">{initialMessage.example}</p>
-            </div>
+              <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 dark:text-slate-400 p-4">
+                <ChatBubbleLeftEllipsisIcon className="w-16 h-16 mb-4 opacity-50" />
+                <h3 className="text-md font-semibold">{initialMessageText}</h3>
+                <p className="text-xs">{initialMessageExample}</p>
+              </div>
           )}
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-lg lg:max-w-xl px-5 py-3 rounded-xl shadow-md ${
-                  msg.sender === 'user' 
-                    ? 'bg-primary-600 text-white rounded-br-none' 
-                    : 'bg-slate-600 text-slate-100 rounded-bl-none'
-                }`}
+              <div className={`max-w-[75%] p-2.5 rounded-xl shadow-sm
+                  ${msg.sender === 'user' 
+                    ? 'bg-blue-600 text-white rounded-br-none' 
+                    : 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 rounded-bl-none'
+                  }`}
               >
-                <div className="flex items-center mb-1.5">
+                <div className="flex items-center space-x-1.5 mb-1">
                   {msg.sender === 'user' ? (
-                    <UserCircleIcon className="h-5 w-5 mr-2 flex-shrink-0" />
+                      <UserIcon className="w-4 h-4 p-0.5 bg-blue-400 text-white rounded-full" />
                   ) : (
-                    <CpuChipIcon className="h-5 w-5 mr-2 flex-shrink-0 text-primary-400" />
+                      <SparklesIcon className="w-4 h-4 p-0.5 bg-green-400 dark:bg-green-500 text-white rounded-full" />
                   )}
-                  <span className={`text-xs font-semibold ${msg.sender === 'user' ? 'text-primary-100' : 'text-slate-300'}`}>
-                    {msg.sender === 'user' ? 'Anda' : 'Asisten AI'}
+                  <span className="text-xs font-semibold">
+                      {msg.sender === 'user' ? 'Anda' : 'Asisten AI'}
                   </span>
                 </div>
-                 <ReactMarkdown 
-                    className="prose prose-sm prose-invert max-w-none"
-                    components={{
-                        p: ({node, ...props}) => <p className="text-sm leading-normal" {...props} />,
-                        ul: ({node, ...props}) => <ul className="list-disc list-outside ml-4 text-sm space-y-0.5" {...props} />,
-                        ol: ({node, ...props}) => <ol className="list-decimal list-outside ml-4 text-sm space-y-0.5" {...props} />,
-                        li: ({node, ...props}) => <li className="text-sm my-0.5" {...props} />,
-                        a: ({node, ...props}) => <a className="text-sky-400 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
-                        strong: ({node, ...props}) => <strong className="font-medium" {...props} />,
-                    }}
-                 >{msg.text}</ReactMarkdown>
-                <p className="text-xs text-slate-400 mt-2 text-right">{msg.timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
+                <div className="prose prose-sm dark:prose-invert max-w-none message-content"> {/* Add a class for specific styling */}
+                  <ReactMarkdown components={ChatMarkdownComponents}>{msg.text}</ReactMarkdown>
+                </div>
+                <p className={`text-right mt-1 text-xs ${msg.sender === 'user' ? 'text-blue-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                  {msg.timestamp.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                </p>
               </div>
             </div>
           ))}
           {isLoading && messages[messages.length -1]?.sender === 'user' && (
             <div className="flex justify-start">
-               <div className="max-w-xs lg:max-w-md px-5 py-3 rounded-xl shadow-md bg-slate-600 text-slate-100 rounded-bl-none">
-                  <div className="flex items-center">
-                    <Spinner size="sm" color="text-primary-400" /> <span className="ml-3 text-sm">AI sedang berpikir...</span>
-                  </div>
-               </div>
+              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm rounded-bl-none inline-flex items-center space-x-2">
+                <svg className="animate-spin h-4 w-4 text-blue-500 dark:text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="text-sm text-slate-500 dark:text-slate-300">AI sedang berpikir...</span>
+              </div>
             </div>
           )}
           <div ref={chatEndRef} />
         </div>
-        <div className="p-4 border-t border-slate-600 bg-slate-700">
-          <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center space-x-3">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={placeholderText}
-              className="flex-grow p-3 bg-slate-600 border border-slate-500 rounded-lg text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all duration-150 shadow-sm"
-              disabled={isLoading}
-              aria-label="Ketik pertanyaan Anda"
-            />
-            <button
-              type="submit"
-              disabled={isLoading || inputValue.trim() === ''}
-              className="p-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
-              aria-label={isLoading ? "Mengirim pertanyaan" : "Kirim pertanyaan"}
-            >
-              {isLoading ? <Spinner size="sm" color="text-white" /> : <PaperAirplaneIcon className="h-6 w-6" />}
-            </button>
-          </form>
+        <div className="p-3 sm:p-4 border-t border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+          <div className="flex items-center space-x-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && !isLoading && inputValue.trim() !== '' && handleSendMessage()}
+                placeholder={placeholderText}
+                disabled={isLoading}
+                aria-label="Ketik pertanyaan Anda"
+                className="flex-grow block w-full px-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm 
+                           bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200 
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+                           placeholder-slate-400 dark:placeholder-slate-500 text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleSendMessage}
+                disabled={isLoading || inputValue.trim() === ''}
+                className="p-2.5 rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                aria-label={isLoading ? "Mengirim pertanyaan" : "Kirim pertanyaan"}
+              >
+                {isLoading ? (
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <PaperAirplaneIcon className="h-5 w-5" />
+                )}
+              </button>
+          </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };

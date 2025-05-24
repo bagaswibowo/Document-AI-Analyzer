@@ -1,53 +1,133 @@
 
+
+
 import React from 'react';
-import { ParsedCsvData } from '../types';
-import { Card } from './common/Card';
-import { InformationCircleIcon, HashtagIcon, ChartPieIcon, CalculatorIcon, ListBulletIcon } from '@heroicons/react/24/outline';
+// FIX: Ensure ColumnStats is correctly imported from ../types. This was indicated as a potential fix for downstream type errors.
+import { ParsedCsvData, ColumnInfo, ColumnStats } from '../types';
+import { 
+  InformationCircleIcon, TagIcon, Squares2X2Icon, PresentationChartBarIcon, CircleStackIcon, ListBulletIcon, HashtagIcon, CalendarDaysIcon, CheckBadgeIcon, QuestionMarkCircleIcon
+} from '@heroicons/react/24/outline';
 
 interface DataOverviewProps {
   data: ParsedCsvData;
 }
 
-const StatCard: React.FC<{ title: string; value: string | number; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
-  <div className="bg-slate-650 p-5 rounded-lg shadow-lg flex items-center transition-all hover:shadow-primary-500/20 hover:scale-105">
-    <div className="p-3 bg-primary-500/10 rounded-full mr-4">
-      <Icon className="h-7 w-7 text-primary-400" />
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: React.ElementType; // Heroicon component
+  iconColorClass?: string;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, iconColorClass = "text-blue-500 dark:text-blue-400" }) => (
+  <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-md flex items-center space-x-3 transition-colors duration-300">
+    <div className={`p-2 rounded-full bg-opacity-20 ${iconColorClass.replace('text-', 'bg-')}`}>
+      <Icon className={`w-6 h-6 ${iconColorClass}`} />
     </div>
     <div>
-      <p className="text-sm text-slate-400">{title}</p>
-      <p className="text-2xl font-semibold text-slate-100">{value}</p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{title}</p>
+      <p className="text-xl font-semibold text-slate-700 dark:text-slate-200">{value}</p>
     </div>
   </div>
 );
 
+const getDataTypeIcon = (type: string): React.ElementType => {
+  switch (type) {
+    case 'number': return HashtagIcon;
+    case 'string': return TagIcon;
+    case 'boolean': return CheckBadgeIcon;
+    case 'date': return CalendarDaysIcon;
+    default: return QuestionMarkCircleIcon;
+  }
+};
 
 export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
+  const sampleDataColumns = data.headers.map(header => ({
+    title: header,
+    key: header,
+    dataIndex: header,
+  }));
+
+  const columnInfoColumns = [
+    { title: 'Nama Kolom', dataIndex: 'name', key: 'name' },
+    { title: 'Tipe Data', dataIndex: 'type', key: 'type', render: (type: string) => {
+        const TypeIcon = getDataTypeIcon(type);
+        return <div className="flex items-center space-x-1.5">
+                  <TypeIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <span className="capitalize">{type}</span>
+               </div>;
+      } 
+    },
+    { title: 'Data Hilang', dataIndex: 'missingCount', key: 'missingCount', render: (count: number, record: ColumnInfo) => `${count} (${((count / data.rowCount) * 100).toFixed(1)}%)` },
+    { title: 'Nilai Unik', dataIndex: 'uniqueValues', key: 'uniqueValues', render: (values: (string | number)[] = [], record: ColumnInfo) => values.length },
+    { title: 'Mean', dataIndex: 'mean', key: 'mean', render: (val?: number) => val?.toFixed(2) ?? '-' },
+    { title: 'Median', dataIndex: 'median', key: 'median', render: (val?: number) => val?.toFixed(2) ?? '-' },
+    { title: 'Modus', dataIndex: 'mode', key: 'mode', render: (val?: number | string) => val ?? '-' },
+    { title: 'Min', dataIndex: 'min', key: 'min', render: (val?: number | string) => val ?? '-' },
+    { title: 'Max', dataIndex: 'max', key: 'max', render: (val?: number | string) => val ?? '-' },
+  ];
+  
   return (
-    <div className="space-y-8">
-      <Card title={`Ringkasan Data: ${data.fileName}`} icon={InformationCircleIcon}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-            <StatCard title="Total Baris" value={data.rowCount.toLocaleString()} icon={HashtagIcon} />
-            <StatCard title="Total Kolom" value={data.columnCount.toLocaleString()} icon={ListBulletIcon} />
-            <StatCard title="Ukuran File (Est.)" value={`${(data.rows.reduce((acc, row) => acc + JSON.stringify(row).length, 0) / 1024).toFixed(2)} KB`} icon={CalculatorIcon} />
-            <StatCard title="Baris Sampel" value={data.sampleRows.length} icon={ChartPieIcon} />
-        </div>
-        
-        <h3 className="text-xl font-semibold mb-3 text-slate-100">Data Sampel (Pertama {data.sampleRows.length} Baris)</h3>
-        <div className="overflow-x-auto bg-slate-750 rounded-lg shadow-md">
-          <table className="min-w-full text-sm text-left text-slate-300">
-            <thead className="bg-slate-650 text-xs text-slate-400 uppercase tracking-wider">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Nama File" value={data.fileName.length > 20 ? `${data.fileName.substring(0,18)}...` : data.fileName} icon={InformationCircleIcon} />
+        <StatCard title="Jumlah Baris" value={data.rowCount.toLocaleString('id-ID')} icon={ListBulletIcon} iconColorClass="text-green-500 dark:text-green-400" />
+        <StatCard title="Jumlah Kolom" value={data.columnCount.toLocaleString('id-ID')} icon={Squares2X2Icon} iconColorClass="text-yellow-500 dark:text-yellow-400" />
+        <StatCard title="Ukuran Estimasi" value={`${(JSON.stringify(data.rows).length / 1024).toFixed(2)} KB`} icon={CircleStackIcon} iconColorClass="text-purple-500 dark:text-purple-400" />
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300 flex items-center">
+          <PresentationChartBarIcon className="w-6 h-6 mr-2 text-blue-500 dark:text-blue-400" />
+          Informasi Kolom
+        </h3>
+        <div className="overflow-x-auto bg-white dark:bg-slate-800 shadow rounded-lg">
+          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-700">
               <tr>
-                {data.headers.map((header) => (
-                  <th key={header} scope="col" className="px-5 py-3 whitespace-nowrap font-medium">{header}</th>
+                {columnInfoColumns.map(col => (
+                  <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                    {col.title}
+                  </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-600">
-              {data.sampleRows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="hover:bg-slate-650/70 transition-colors duration-150">
-                  {data.headers.map((header) => (
-                    <td key={`${rowIndex}-${header}`} className="px-5 py-3 whitespace-nowrap">
-                      {String(row[header] ?? 'N/A')}
+            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+              {data.columnInfos.map((info, rowIndex) => (
+                <tr key={info.name} className={`${rowIndex % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/50'} hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors`}>
+                  {columnInfoColumns.map(col => (
+                    <td key={col.key} className="px-4 py-3 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
+                      {/* FIX: Safely access properties from info and info.stats using typed keys */}
+                      {(() => {
+                        const dataIndexStr = col.dataIndex as string;
+                        let valueToRenderOrDisplay: any;
+
+                        // Check if dataIndexStr is a key of info.stats (and an own property)
+                        if (Object.prototype.hasOwnProperty.call(info.stats, dataIndexStr)) {
+                           valueToRenderOrDisplay = info.stats[dataIndexStr as keyof ColumnStats];
+                        } 
+                        // Else, check if dataIndexStr is a key of info (and an own property)
+                        else if (Object.prototype.hasOwnProperty.call(info, dataIndexStr)) {
+                           valueToRenderOrDisplay = info[dataIndexStr as keyof ColumnInfo];
+                        } else {
+                           // Fallback if dataIndex is somehow not found (should not happen with current config)
+                           valueToRenderOrDisplay = undefined;
+                        }
+
+                        if (col.render) {
+                          // The render function expects the specific value and optionally the full record.
+                          // The type of valueToRenderOrDisplay will be specific to the dataIndexStr.
+                          return col.render(valueToRenderOrDisplay, info);
+                        } else {
+                          // Default rendering for columns without a specific render function (e.g., 'name')
+                          // FIX: Ensure String conversion is safe. Given valueToRenderOrDisplay can be various types from ColumnInfo/ColumnStats,
+                          // or undefined, `?? '-` handles undefined/null, and String() handles the rest.
+                          // The 'never' error was likely a symptom of the missing ColumnStats type, making type inference problematic.
+                          // With ColumnStats correctly imported and typed, valueToRenderOrDisplay should not be 'any' in a problematic way,
+                          // and String() should handle its conversion correctly.
+                          return String(valueToRenderOrDisplay ?? '-');
+                        }
+                      })()}
                     </td>
                   ))}
                 </tr>
@@ -55,61 +135,42 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
             </tbody>
           </table>
         </div>
-      </Card>
-
-      <Card title="Informasi & Statistik Kolom" icon={ListBulletIcon}>
-        <div className="overflow-x-auto bg-slate-750 rounded-lg shadow-md">
-          <table className="min-w-full text-sm text-left text-slate-300">
-            <thead className="bg-slate-650 text-xs text-slate-400 uppercase tracking-wider">
-              <tr>
-                <th scope="col" className="px-5 py-3 font-medium">Nama Kolom</th>
-                <th scope="col" className="px-5 py-3 font-medium">Tipe Data</th>
-                <th scope="col" className="px-5 py-3 font-medium">Hilang</th>
-                <th scope="col" className="px-5 py-3 font-medium">Rata-rata (Mean)</th>
-                <th scope="col" className="px-5 py-3 font-medium">Median</th>
-                <th scope="col" className="px-5 py-3 font-medium">Deviasi Standar</th>
-                <th scope="col" className="px-5 py-3 font-medium">Min</th>
-                <th scope="col" className="px-5 py-3 font-medium">Maks</th>
-                <th scope="col" className="px-5 py-3 font-medium">Unik (Jumlah)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-600">
-              {data.columnInfos.map((col) => (
-                <tr key={col.name} className="hover:bg-slate-650/70 transition-colors duration-150">
-                  <td className="px-5 py-3 font-medium text-slate-100">{col.name}</td>
-                  <td className="px-5 py-3 capitalize">{col.type === 'string' ? 'teks' : col.type === 'number' ? 'angka' : col.type === 'boolean' ? 'boolean' : col.type === 'date' ? 'tanggal' : 'tidak diketahui'}</td>
-                  <td className="px-5 py-3">{col.stats.missingCount} <span className="text-slate-400">({((col.stats.missingCount / data.rowCount) * 100).toFixed(1)}%)</span></td>
-                  <td className="px-5 py-3">{col.stats.mean?.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) ?? <span className="text-slate-500">N/A</span>}</td>
-                  <td className="px-5 py-3">{col.stats.median?.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) ?? <span className="text-slate-500">N/A</span>}</td>
-                  <td className="px-5 py-3">{col.stats.stdDev?.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2}) ?? <span className="text-slate-500">N/A</span>}</td>
-                  <td className="px-5 py-3">
-                    {col.stats.min !== undefined && col.stats.min !== null
-                      ? typeof col.stats.min === 'number'
-                        ? col.stats.min.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2})
-                        : String(col.stats.min)
-                      : <span className="text-slate-500">N/A</span>}
-                  </td>
-                  <td className="px-5 py-3">
-                    {col.stats.max !== undefined && col.stats.max !== null
-                      ? typeof col.stats.max === 'number'
-                        ? col.stats.max.toLocaleString('id-ID', {minimumFractionDigits: 2, maximumFractionDigits: 2})
-                        : String(col.stats.max)
-                      : <span className="text-slate-500">N/A</span>}
-                  </td>
-                  <td className="px-5 py-3">
-                    {col.stats.uniqueValues ? `${col.stats.uniqueValues.length.toLocaleString('id-ID')}` : <span className="text-slate-500">N/A</span>}
-                    {col.stats.valueCounts && (col.type === 'string' || col.type === 'boolean') && col.stats.uniqueValues && col.stats.uniqueValues.length < data.rowCount && (
-                        <div className="text-xs text-slate-400 truncate max-w-xs mt-1" title={Object.entries(col.stats.valueCounts).map(([k,v]) => `${k}: ${v.toLocaleString('id-ID')}`).join(', ')}>
-                           Teratas: {Object.entries(col.stats.valueCounts).sort((a,b) => b[1]-a[1]).slice(0,2).map(([k,v]) => `${k} (${v.toLocaleString('id-ID')})`).join(', ')}
-                        </div>
-                    )}
-                  </td>
+      </div>
+      
+      <div>
+        <h3 className="text-lg font-semibold mb-3 text-slate-700 dark:text-slate-300 flex items-center">
+          <ListBulletIcon className="w-6 h-6 mr-2 text-blue-500 dark:text-blue-400" />
+          Data Sampel (10 Baris Pertama)
+        </h3>
+        {data.sampleRows.length > 0 ? (
+          <div className="overflow-x-auto bg-white dark:bg-slate-800 shadow rounded-lg">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-700">
+                <tr>
+                  {sampleDataColumns.map(col => (
+                    <th key={col.key} scope="col" className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider truncate max-w-[150px]" title={col.title}>
+                      {col.title}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                {data.sampleRows.map((row, rowIndex) => (
+                  <tr key={rowIndex} className={`${rowIndex % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/50'} hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors`}>
+                    {data.headers.map(header => (
+                      <td key={`${rowIndex}-${header}`} className="px-4 py-3 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300 truncate max-w-[150px]" title={String(row[header] ?? '-')}>
+                        {String(row[header] ?? '-')}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada data sampel untuk ditampilkan.</p>
+        )}
+      </div>
     </div>
   );
 };

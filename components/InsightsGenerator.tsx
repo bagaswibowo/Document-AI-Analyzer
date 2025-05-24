@@ -1,9 +1,7 @@
-
-import React, { useState, useEffect } from 'react';
-import { Card } from './common/Card';
-import { Spinner } from './common/Spinner';
-import { LightBulbIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import React, { useState, useContext } from 'react';
+import { ThemeContext } from '../index'; // Only for isDarkMode, not for AntD token
 import ReactMarkdown from 'react-markdown';
+import { LightBulbIcon, BeakerIcon, InformationCircleIcon } from '@heroicons/react/24/outline'; // Beaker for Experiment
 
 interface InsightsGeneratorProps {
   onGenerateInsights: () => Promise<string>;
@@ -13,15 +11,45 @@ interface InsightsGeneratorProps {
 export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerateInsights, isLoading }) => {
   const [insights, setInsights] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { themeMode } = useContext(ThemeContext);
+  const isDarkMode = themeMode === 'dark';
+
+
+  // Tailwind's typography plugin handles most styling. Add custom styles if needed.
+  const MarkdownComponents = {
+      h1: ({node, ...props}: any) => <h1 className="text-2xl font-bold my-4 text-blue-600 dark:text-blue-400 border-b pb-2 border-slate-300 dark:border-slate-600" {...props} />,
+      h2: ({node, ...props}: any) => <h2 className="text-xl font-semibold my-3 text-slate-700 dark:text-slate-300" {...props} />,
+      h3: ({node, ...props}: any) => <h3 className="text-lg font-medium my-2 text-slate-600 dark:text-slate-400" {...props} />,
+      p: ({node, ...props}: any) => <p className="my-2 leading-relaxed text-slate-700 dark:text-slate-300" {...props} />,
+      ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-2 space-y-1 text-slate-700 dark:text-slate-300" {...props} />,
+      ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-2 space-y-1 text-slate-700 dark:text-slate-300" {...props} />,
+      li: ({node, ...props}: any) => <li className="text-slate-700 dark:text-slate-300" {...props} />,
+      strong: ({node, ...props}: any) => <strong className="font-semibold text-slate-800 dark:text-slate-200" {...props} />,
+      em: ({node, ...props}: any) => <em className="italic text-slate-600 dark:text-slate-400" {...props} />,
+      a: ({node, ...props}: any) => <a className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer" {...props} />,
+      code: ({node, inline, className, children, ...props}: any) => {
+        const match = /language-(\w+)/.exec(className || '');
+        return !inline ? (
+          <pre className={`my-3 p-3 rounded-md bg-slate-100 dark:bg-slate-700 overflow-x-auto text-sm ${className || ''}`} {...props}>
+            <code className={`language-${match ? match[1] : 'text'}`}>{String(children).replace(/\n$/, '')}</code>
+          </pre>
+        ) : (
+          <code className="px-1 py-0.5 bg-slate-200 dark:bg-slate-600 rounded text-sm text-pink-600 dark:text-pink-400" {...props}>
+            {children}
+          </code>
+        );
+      },
+      blockquote: ({node, ...props}: any) => <blockquote className="my-2 pl-4 border-l-4 border-slate-300 dark:border-slate-600 italic text-slate-600 dark:text-slate-400" {...props} />,
+  };
+
 
   const handleFetchInsights = async () => {
     setError(null);
+    setInsights(null);
     try {
       const result = await onGenerateInsights();
-      // Check if result indicates an error from the service itself (e.g. API key issue)
       if (result.startsWith("Error:") || result.startsWith("Gagal")) {
           setError(result);
-          setInsights(null);
       } else {
           setInsights(result);
       }
@@ -32,61 +60,59 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
   };
   
   return (
-    <Card title="Wawasan Berbasis AI (Data Tabular)" icon={SparklesIcon}>
-      <button
-        onClick={handleFetchInsights}
-        disabled={isLoading}
-        className="w-full sm:w-auto mb-6 px-8 py-3 bg-primary-600 text-white font-semibold rounded-lg shadow-md hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50 transform hover:scale-105"
-        aria-live="polite"
-        aria-label="Hasilkan wawasan berbasis AI dari data tabular"
-      >
-        {isLoading ? (
-          <>
-            <Spinner size="sm" color="text-white" />
-            <span className="ml-3">Menghasilkan Wawasan...</span>
-          </>
-        ) : (
-          <>
-            <LightBulbIcon className="h-6 w-6 mr-2" />
-            Hasilkan Wawasan
-          </>
-        )}
-      </button>
+    <div className="bg-white dark:bg-slate-800 p-0 rounded-lg shadow-none min-h-[calc(100vh-250px)]"> {/* No internal padding, App.tsx handles it */}
+      <div className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-6 flex items-center">
+        <LightBulbIcon className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
+        Wawasan Berbasis AI (Data Tabular)
+      </div>
+      
+      <div className="text-center mb-6">
+        <button
+          type="button"
+          onClick={handleFetchInsights}
+          disabled={isLoading}
+          className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Menghasilkan...
+            </>
+          ) : (
+            <>
+              <BeakerIcon className="-ml-1 mr-2 h-5 w-5" />
+              Hasilkan Wawasan
+            </>
+          )}
+        </button>
+      </div>
 
-      {error && <div className="p-4 mb-4 bg-red-700/30 border border-red-500 text-red-300 rounded-md shadow animate-fade-in">{error}</div>}
+      {error && (
+        <div className="mb-4 p-4 rounded-md bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-200" role="alert">
+            <h3 className="font-semibold">Error</h3>
+            <p className="text-sm">{error}</p>
+        </div>
+      )}
       
       {insights && !isLoading && (
-        <div className="prose prose-sm sm:prose-base prose-invert max-w-none p-5 bg-slate-750 rounded-lg shadow-inner">
-          <ReactMarkdown
-            components={{
-              h1: ({node, ...props}) => <h1 className="text-2xl font-semibold text-primary-400 mb-3 border-b border-slate-600 pb-2" {...props} />,
-              h2: ({node, ...props}) => <h2 className="text-xl font-semibold text-primary-300 mt-4 mb-2" {...props} />,
-              h3: ({node, ...props}) => <h3 className="text-lg font-semibold text-sky-400 mt-3 mb-1" {...props} />,
-              p: ({node, ...props}) => <p className="text-slate-300 my-2 leading-relaxed" {...props} />,
-              ul: ({node, ...props}) => <ul className="list-disc list-outside ml-5 text-slate-300 my-3 space-y-1" {...props} />,
-              ol: ({node, ...props}) => <ol className="list-decimal list-outside ml-5 text-slate-300 my-3 space-y-1" {...props} />,
-              li: ({node, ...props}) => <li className="my-1.5" {...props} />,
-              strong: ({node, ...props}) => <strong className="font-semibold text-slate-100" {...props} />,
-              em: ({node, ...props}) => <em className="text-sky-300" {...props} />,
-              a: ({node, ...props}) => <a className="text-primary-400 hover:text-primary-300 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
-              code: ({node, inline, ...props}) => inline 
-                ? <code className="bg-slate-600 text-sky-300 px-1 py-0.5 rounded text-sm" {...props} />
-                : <pre className="bg-slate-800 p-3 rounded-md overflow-x-auto text-sm"><code className="text-sky-300" {...props} /></pre>,
-              pre: ({node, ...props}) => <pre className="bg-slate-800 p-3 rounded-md overflow-x-auto" {...props} />,
-              blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-primary-500 pl-4 italic text-slate-400 my-3" {...props} />,
-            }}
-          >
+        <div className="prose prose-sm sm:prose-base lg:prose-lg dark:prose-invert max-w-none p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+          <ReactMarkdown components={MarkdownComponents}>
             {insights}
           </ReactMarkdown>
         </div>
       )}
       {!insights && !isLoading && !error && (
-         <div className="text-center text-slate-400 py-10 bg-slate-750 rounded-lg shadow-inner">
-            <SparklesIcon className="h-16 w-16 mx-auto mb-4 text-primary-500 opacity-60" />
-            <p className="text-lg">Klik tombol di atas untuk menghasilkan wawasan data menggunakan AI.</p>
-            <p className="text-sm text-slate-500 mt-1">Temukan pola, anomali, dan observasi menarik dalam dataset Anda.</p>
-          </div>
+         <div className="p-8 text-center bg-slate-50 dark:bg-slate-700/30 rounded-lg">
+          <LightBulbIcon className="w-16 h-16 text-blue-400 dark:text-blue-500 opacity-60 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Klik tombol di atas untuk menghasilkan wawasan.</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Temukan pola, anomali, dan observasi menarik dalam dataset Anda.
+          </p>
+        </div>
       )}
-    </Card>
+    </div>
   );
 };

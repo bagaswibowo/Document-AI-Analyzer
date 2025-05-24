@@ -105,7 +105,7 @@ Format output HARUS berupa objek JSON tunggal dengan struktur berikut:
 
 Pesan error bisa berupa:
 - "COLUMN_NOT_FOUND" jika kolom yang disebut tidak ada dalam daftar.
-- "OPERATION_UNCLEAR" jika operasi tidak dapat diidentifikasi atau tidak valid.
+- "OPERATION_UNCLEAR" jika operasi tidak dapat diidentifikasi atau tidak valid, atau jika permintaan melibatkan perbandingan antar baris atau pengelompokan yang kompleks (misalnya, "pelanggan dengan tanggal pendaftaran yang sama").
 - "AMBIGUOUS_REQUEST" jika permintaan terlalu ambigu untuk diinterpretasikan.
 - "" (string kosong) jika tidak ada error.
 
@@ -165,15 +165,16 @@ export const generateInsights = async (data: ParsedCsvData): Promise<string> => 
   const currentAi = getAiInstance();
   const dataSummary = formatDataSummaryForPrompt(data);
   const prompt = `
-Analisis ringkasan dataset berikut dan berikan 3-5 wawasan, pola, atau anomali yang bermakna.
-Fokus pada observasi yang dapat ditindaklanjuti atau menarik. Jaga agar tetap ringkas dan jelas.
-Jika ada masalah kualitas data yang jelas (misalnya, banyak nilai yang hilang di kolom utama), sebutkan.
-Format respons Anda sebagai daftar wawasan menggunakan Markdown.
+Analisis ringkasan dataset berikut. Berikan 3-5 wawasan, pola, atau anomali penting dari data ini.
+Gunakan bahasa yang sederhana dan mudah dipahami, seolah-olah Anda menjelaskan kepada seseorang yang tidak terbiasa dengan analisis data.
+Hindari jargon teknis sebisa mungkin.
+Jika ada masalah kualitas data yang jelas (misalnya, banyak nilai yang hilang di kolom utama), sebutkan juga dengan bahasa yang mudah dimengerti.
+Format respons Anda sebagai daftar poin-poin menggunakan Markdown.
 
 Ringkasan Dataset:
 ${dataSummary}
 
-Wawasan:
+Wawasan (dalam bahasa yang sederhana):
 `;
 
   try {
@@ -195,15 +196,11 @@ export const answerQuestion = async (
   ): Promise<string> => {
   const currentAi = getAiInstance();
   
-  // Bagian prompt ini tidak lagi memerlukan skema kolom terpisah karena sudah ada di dataSummary
-  // let columnSchema = "Skema Kolom (Nama: Tipe Data [Statistik Utama jika ada]):\n";
-  // data.columnInfos.forEach(col => { ... });
-
   const prompt = `
 Anda adalah asisten AI yang sangat mahir dalam menganalisis data tabular dan menafsirkan permintaan perhitungan mirip fungsi spreadsheet.
 Gunakan ringkasan data yang disediakan untuk menjawab pertanyaan pengguna secara akurat.
 
-${calculationResultContext ? `KONTEKS TAMBAHAN: Sistem telah melakukan perhitungan berdasarkan pertanyaan pengguna. ${calculationResultContext} Tugas Anda adalah menyajikan hasil ini dengan jelas dalam jawaban Anda, sambil tetap merujuk pada ringkasan data jika perlu untuk konteks tambahan.\n` : ""}
+${calculationResultContext ? `KONTEKS TAMBAHAN: Sistem telah melakukan perhitungan atau interpretasi berdasarkan pertanyaan pengguna. ${calculationResultContext} Tugas Anda adalah menyajikan hasil ini dengan jelas dalam jawaban Anda, sambil tetap merujuk pada ringkasan data jika perlu untuk konteks tambahan.\n` : ""}
 
 Kemampuan Anda Meliputi:
 1.  Menjawab pertanyaan umum tentang data berdasarkan ringkasan yang diberikan.
@@ -212,19 +209,24 @@ Kemampuan Anda Meliputi:
     *   Jika tidak ada KONTEKS TAMBAHAN, rujuk pada statistik yang sudah ada dalam ringkasan data jika pertanyaan dapat dijawab darinya. Misalnya, "Rata-rata untuk kolom 'Usia' adalah 25.5 tahun, seperti yang tertera dalam statistik kolom."
     *   Jika statistik tidak ada di ringkasan dan tidak ada hasil perhitungan yang diberikan, jelaskan bagaimana cara menghitungnya secara konseptual.
 3.  Memahami dan menjelaskan secara KONSEPTUAL fungsi spreadsheet yang lebih kompleks. Anda BELUM dapat MELAKUKAN perhitungan ini, tetapi Anda harus bisa MENJELASKAN CARA KERJANYA:
-    *   FUNGSI LOGIKA & KONDISIONAL (SUMIF, COUNTIF, AVERAGEIF, IF, AND, OR, NOT, IFS): Jelaskan logika kondisional dan bagaimana data akan difilter atau dievaluasi. Misalnya, untuk SUMIF, "Untuk menghitung total penjualan kategori 'Elektronik', kita akan memfilter baris dimana kolom 'Kategori' adalah 'Elektronik', lalu menjumlahkan kolom 'Penjualan' untuk baris-baris tersebut."
-    *   FUNGSI TEKS (CONCATENATE, LEFT, RIGHT, MID, LEN, FIND, REPLACE, SUBSTITUTE, TRIM, LOWER, UPPER, PROPER): Jelaskan tujuan masing-masing fungsi (misalnya, CONCATENATE untuk menggabungkan teks, LEN untuk panjang teks).
+    *   FUNGSI LOGIKA & KONDISIONAL (SUMIF, COUNTIF, AVERAGEIF, IF, AND, OR, NOT, IFS): Jelaskan logika kondisional dan bagaimana data akan difilter atau dievaluasi.
+    *   FUNGSI TEKS (CONCATENATE, LEFT, RIGHT, MID, LEN, FIND, REPLACE, SUBSTITUTE, TRIM, LOWER, UPPER, PROPER): Jelaskan tujuan masing-masing fungsi.
     *   FUNGSI TANGGAL & WAKTU (TODAY, NOW, DATE, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DATEDIF, WEEKDAY): Jelaskan bagaimana fungsi ini mengekstrak atau memanipulasi komponen tanggal/waktu.
-    *   FUNGSI LOOKUP (VLOOKUP - secara konseptual): Jelaskan sebagai cara mencari nilai di satu kolom dan mengembalikan nilai terkait dari kolom lain di baris yang sama. Sebutkan ini untuk pencarian.
+    *   FUNGSI LOOKUP (VLOOKUP - secara konseptual): Jelaskan sebagai cara mencari nilai di satu kolom dan mengembalikan nilai terkait dari kolom lain di baris yang sama.
     *   FUNGSI MATEMATIKA TAMBAHAN (ROUND, ABS, POWER, SQRT): Jelaskan fungsi matematika dasar ini.
 
 Instruksi Penting:
 *   SELALU prioritaskan penggunaan HASIL PERHITUNGAN YANG DIBERIKAN dalam 'KONTEKS TAMBAHAN' jika ada.
 *   Jika tidak ada hasil yang diberikan, prioritaskan STATISTIK YANG SUDAH ADA dalam ringkasan data.
 *   Jika perhitungan diminta tetapi tidak ada hasil atau statistik relevan, JELASKAN PROSES ATAU METODE KONSEPTUAL. Jangan mengarang angka.
+*   Jika 'KONTEKS TAMBAHAN' mengindikasikan 'OPERATION_UNCLEAR' atau bahwa permintaan pengguna adalah untuk operasi kompleks di luar kemampuan perhitungan langsung (misalnya, membuat daftar item berdasarkan kondisi bersama seperti "pelanggan yang mendaftar pada tanggal yang sama"):
+    1.  Jelaskan dengan sopan bahwa sistem tidak dapat melakukan operasi kompleks tersebut secara langsung.
+    2.  Jelaskan secara konseptual bagaimana permintaan tersebut akan ditangani (misalnya, dengan mengelompokkan data).
+    3.  Jika ringkasan data memberikan petunjuk (misalnya, jumlah nilai unik lebih kecil dari jumlah baris untuk kolom yang relevan), gunakan itu untuk memberikan wawasan (misalnya, "Ini menunjukkan bahwa memang ada beberapa item yang berbagi [nilai/tanggal]").
+    4.  **Secara proaktif, tawarkan untuk menjawab pertanyaan terkait yang lebih sederhana yang *dapat* Anda jawab.** Contoh: "Meskipun saya tidak bisa membuat daftar semua [item] tersebut, saya bisa memberitahu Anda jumlah total [nilai/tanggal] unik. Apakah itu akan membantu?" atau "Anda bisa bertanya tentang jumlah [item] untuk [nilai/tanggal] tertentu."
 *   Sebutkan nama fungsi spreadsheet yang relevan jika pengguna menggunakan istilah umum (misalnya, "total" berarti SUM).
 *   Lakukan interpretasi perhitungan hanya pada kolom yang relevan. Jika tidak relevan, jelaskan mengapa.
-*   Jika pertanyaan tidak dapat dijawab dari data yang diberikan atau perhitungan tidak mungkin dilakukan (dan tidak ada hasil yang diberikan), jelaskan mengapa secara sopan.
+*   Jika pertanyaan tidak dapat dijawab dari data yang diberikan atau perhitungan tidak mungkin dilakukan (dan tidak ada hasil yang diberikan dan bukan kasus 'OPERATION_UNCLEAR' seperti di atas), jelaskan mengapa secara sopan.
 *   Jika pertanyaan bersifat ambigu, minta klarifikasi.
 *   Jawab dengan ringkas, jelas, dan langsung ke intinya. Gunakan poin-poin jika perlu.
 *   Anda TIDAK dapat mengeksekusi query SQL, membuat visualisasi, atau memodifikasi data. Fokus pada interpretasi, penjelasan, dan penyajian hasil yang diberikan.
@@ -256,11 +258,12 @@ export const summarizeContent = async (textContent: string): Promise<string> => 
   const prompt = `
 Ringkas konten berikut dalam 3-5 poin utama atau dalam satu paragraf singkat (sekitar 100-150 kata).
 Fokus pada ide-ide inti dan informasi paling penting.
+Gunakan bahasa yang sederhana dan mudah dipahami.
 Konten:
 ---
 ${textContent.substring(0, 30000)} ${textContent.length > 30000 ? "... (konten dipotong)" : ""}
 ---
-Ringkasan:
+Ringkasan (dalam bahasa sederhana):
 `;
   try {
     const response: GenerateContentResponse = await currentAi.models.generateContent({
@@ -281,6 +284,7 @@ Anda adalah asisten AI yang menjawab pertanyaan berdasarkan konten yang disediak
 Gunakan hanya informasi dari konten di bawah ini untuk menjawab pertanyaan.
 Jika jawaban tidak ditemukan dalam konten, nyatakan bahwa informasi tersebut tidak tersedia dalam teks yang diberikan.
 Jangan gunakan pengetahuan eksternal.
+Jawab dengan bahasa yang sederhana dan mudah dipahami.
 
 Konten:
 ---
@@ -289,7 +293,7 @@ ${textContent.substring(0, 30000)} ${textContent.length > 30000 ? "... (konten d
 
 Pertanyaan: "${question}"
 
-Jawaban (berdasarkan konten yang disediakan):
+Jawaban (berdasarkan konten yang disediakan, dalam bahasa sederhana):
 `;
   try {
     const response: GenerateContentResponse = await currentAi.models.generateContent({

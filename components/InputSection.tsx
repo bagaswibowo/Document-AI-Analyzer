@@ -1,10 +1,23 @@
-import React, { useState, useCallback, ChangeEvent } from 'react';
-import { ArrowUpTrayIcon, DocumentPlusIcon, PencilIcon, CheckCircleIcon, InformationCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { Spinner } from './common/Spinner';
+import React, { useState, useCallback, useRef, ChangeEvent } from 'react';
 import { ParsedCsvData } from '../types';
-import { parseCSV, parseExcel, extractTextFromFile } from '../services/dataAnalysisService';
+import { parseCSV, parseExcel, extractTextFromFile, fetchWebsiteContent } from '../services/dataAnalysisService';
 
-type InputMode = 'tabular' | 'document' | 'directText';
+import {
+  ArrowUpTrayIcon,
+  DocumentTextIcon,
+  PencilSquareIcon,
+  LinkIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+  XCircleIcon,
+  DocumentDuplicateIcon, // Placeholder for Excel/general tabular
+  DocumentChartBarIcon, // Placeholder for PDF or complex docs
+  SparklesIcon // Placeholder for Word or rich text
+} from '@heroicons/react/24/outline';
+
+
+type InputMode = 'tabular' | 'document' | 'directText' | 'website';
 
 interface InputSectionProps {
   onTabularFileProcessed: (file: File, parsedData: ParsedCsvData) => void;
@@ -14,6 +27,16 @@ interface InputSectionProps {
   setExternalError: (error: string | null) => void;
   setIsLoading: (loading: boolean) => void;
   setLoadingMessage: (message: string) => void;
+}
+
+interface ModeConfig {
+  key: InputMode;
+  title: string;
+  icon: React.ElementType;
+  description: string;
+  fileTypesText?: string;
+  submitButtonText: string;
+  acceptAttr?: string;
 }
 
 export const InputSection: React.FC<InputSectionProps> = ({
@@ -28,42 +51,72 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const [activeMode, setActiveMode] = useState<InputMode>('tabular');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [directText, setDirectText] = useState<string>('');
-  const [dragOver, setDragOver] = useState<boolean>(false);
+  const [websiteUrl, setWebsiteUrl] = useState<string>('');
   const [wordCount, setWordCount] = useState<number>(0);
   const [showDocxSimulationWarning, setShowDocxSimulationWarning] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const MAX_WORDS = 2000;
-  const MAX_FILE_SIZE_TABULAR = 10 * 1024 * 1024; // 10MB
-  const MAX_FILE_SIZE_DOCUMENT = 5 * 1024 * 1024; // 5MB (PDFs can be larger, but text content is key)
+  const MAX_WORDS = 20000;
+  const MAX_FILE_SIZE_TABULAR = 15 * 1024 * 1024; // 15MB
+  const MAX_FILE_SIZE_DOCUMENT = 10 * 1024 * 1024; // 10MB
 
   const resetInputFields = () => {
     setSelectedFile(null);
     setDirectText('');
+    setWebsiteUrl('');
     setWordCount(0);
     setExternalError(null);
     setShowDocxSimulationWarning(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; // Reset file input
+    }
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      let maxSize = activeMode === 'tabular' ? MAX_FILE_SIZE_TABULAR : MAX_FILE_SIZE_DOCUMENT;
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setExternalError(null);
+    setShowDocxSimulationWarning(false);
+    const file = event.target.files?.[0];
+
+    if (file) {
+      const maxSize = activeMode === 'tabular' ? MAX_FILE_SIZE_TABULAR : MAX_FILE_SIZE_DOCUMENT;
       if (file.size > maxSize) {
-        setExternalError(`Ukuran file melebihi batas maksimum (${(maxSize / (1024*1024)).toFixed(0)}MB).`);
+        setExternalError(`Ukuran file melebihi batas maksimum (${(maxSize / (1024 * 1024)).toFixed(0)}MB).`);
         setSelectedFile(null);
-        setShowDocxSimulationWarning(false);
-        if (event.target) event.target.value = ''; // Reset file input
+        if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
       setSelectedFile(file);
-      setExternalError(null); 
-      
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
       if (activeMode === 'document' && fileExtension === 'docx') {
         setShowDocxSimulationWarning(true);
-      } else {
-        setShowDocxSimulationWarning(false);
       }
+    } else {
+      setSelectedFile(null);
+    }
+  };
+  
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setExternalError(null);
+    setShowDocxSimulationWarning(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const getFileIcon = (fileName: string): React.ElementType => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'csv': case 'tsv': case 'xls': case 'xlsx':
+        return DocumentDuplicateIcon; // Using this for tabular data
+      case 'pdf':
+        return DocumentChartBarIcon; // Using this for PDF as it's often complex
+      case 'docx':
+        return SparklesIcon; // Using this for Word as it's rich text
+      case 'txt':
+        return DocumentTextIcon;
+      default:
+        return DocumentTextIcon; // Fallback
     }
   };
 
@@ -73,10 +126,15 @@ export const InputSection: React.FC<InputSectionProps> = ({
     const words = text.trim().split(/\s+/).filter(Boolean);
     setWordCount(words.length);
     if (words.length > MAX_WORDS) {
-      setExternalError(`Input teks melebihi batas maksimum ${MAX_WORDS} kata.`);
+      setExternalError(`Input teks melebihi batas maksimum ${MAX_WORDS.toLocaleString('id-ID')} kata.`);
     } else {
       setExternalError(null);
     }
+  };
+
+  const handleWebsiteUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setWebsiteUrl(event.target.value);
+    setExternalError(null);
   };
 
   const processTabularFile = async (file: File) => {
@@ -86,8 +144,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
     try {
       let parsed: ParsedCsvData;
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      
-      const fileText = await file.text(); 
+      const fileText = await file.text();
 
       if (fileExtension === 'csv') {
         const { headers, rows } = parseCSV(fileText, ',');
@@ -96,13 +153,20 @@ export const InputSection: React.FC<InputSectionProps> = ({
         const { headers, rows } = parseCSV(fileText, '\t');
         parsed = { headers, rows, columnInfos: [], rowCount: rows.length, columnCount: headers.length, sampleRows: [], fileName: file.name };
       } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        parsed = await parseExcel(file); 
+        // parseExcel remains a mock for now, as full Excel parsing is heavy.
+        // If it were real, it would be: parsed = await parseExcel(file);
+        // For this Tailwind version, let's assume parseExcel works or this path won't be hit often by user.
+        // If parseExcel is a mock, we'll fall into the error.
+        // To make it "work" with mock, it should return a valid ParsedCsvData structure.
+        // For now, let's assume the simplified CSV path is taken, or if parseExcel is called, it's handled.
+        // The original parseExcel was a mock that tried to parse as CSV. Let's keep that behavior.
+        parsed = await parseExcel(file); // This mock still tries to parse as CSV
       } else {
         throw new Error("Tipe file tabular tidak didukung.");
       }
 
-      if (parsed.rows.length === 0) {
-        throw new Error("File tabular kosong atau gagal diparsing.");
+      if (parsed.rows.length === 0 && parsed.headers.length === 0) {
+        throw new Error("File tabular kosong atau gagal diparsing. Pastikan format file benar dan tidak kosong.");
       }
       onTabularFileProcessed(file, parsed);
     } catch (e) {
@@ -122,7 +186,38 @@ export const InputSection: React.FC<InputSectionProps> = ({
     } catch (e) {
       console.error("Error processing document file:", e);
       setExternalError(`Gagal memproses file dokumen: ${e instanceof Error ? e.message : String(e)}`);
-      setIsLoading(false); 
+      setIsLoading(false);
+    }
+  };
+
+  const processWebsiteUrl = async (url: string) => {
+    if (!url.trim() || !url.trim().toLowerCase().startsWith('http')) {
+        setExternalError("Silakan masukkan URL yang valid (dimulai dengan http:// atau https://).");
+        return;
+    }
+    setIsLoading(true);
+    setLoadingMessage(`Mengambil dan memproses konten dari ${url}...`);
+    setExternalError(null);
+    try {
+        const textContent = await fetchWebsiteContent(url);
+        if (!textContent.trim()) {
+          throw new Error("Tidak ada konten teks yang dapat diekstrak dari URL ini atau website kosong.");
+        }
+        onDocumentOrTextProcessed(textContent, url);
+    } catch (e) {
+        console.error("Error processing website URL:", e);
+        let displayErrorMessage;
+        if (e instanceof Error) {
+            if (e.message.includes("Gagal mengambil data dari URL") || e.message.includes("Gagal mengambil konten dari URL") || e.message.includes("CORS") || e.message.includes("proxy")) {
+                displayErrorMessage = e.message;
+            } else {
+                displayErrorMessage = `Gagal memproses URL: ${e.message}. Pertimbangkan bahwa ini mungkin disebabkan oleh kebijakan CORS, masalah jaringan, atau website yang tidak dapat diakses. Anda dapat mencoba menyalin teks dari website secara manual dan menggunakan mode 'Teks Langsung'.`;
+            }
+        } else {
+            displayErrorMessage = `Gagal memproses URL: ${String(e)}. Pertimbangkan bahwa ini mungkin disebabkan oleh kebijakan CORS, masalah jaringan, atau website yang tidak dapat diakses. Anda dapat mencoba menyalin teks dari website secara manual dan menggunakan mode 'Teks Langsung'.`;
+        }
+        setExternalError(displayErrorMessage);
+        setIsLoading(false);
     }
   };
 
@@ -137,204 +232,210 @@ export const InputSection: React.FC<InputSectionProps> = ({
         return;
       }
       if (wordCount > MAX_WORDS) {
-        setExternalError(`Input teks melebihi batas maksimum ${MAX_WORDS} kata.`);
+        setExternalError(`Input teks melebihi batas maksimum ${MAX_WORDS.toLocaleString('id-ID')} kata.`);
         return;
       }
-      setIsLoading(true); 
+      setIsLoading(true);
       setLoadingMessage("Memproses teks input...");
       setExternalError(null);
       onDocumentOrTextProcessed(directText, "Teks Langsung");
+    } else if (activeMode === 'website' && websiteUrl) {
+      await processWebsiteUrl(websiteUrl);
     }
   };
-  
-  const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setDragOver(true);
-  }, []);
 
-  const handleDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setDragOver(false);
-  }, []);
-
-  const handleDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setDragOver(false);
-    if (isLoading) return;
-    if (event.dataTransfer.files && event.dataTransfer.files[0]) {
-      const file = event.dataTransfer.files[0];
-      let maxSize = activeMode === 'tabular' ? MAX_FILE_SIZE_TABULAR : MAX_FILE_SIZE_DOCUMENT;
-      if (file.size > maxSize) {
-        setExternalError(`Ukuran file melebihi batas maksimum (${(maxSize / (1024*1024)).toFixed(0)}MB).`);
-        setSelectedFile(null);
-        setShowDocxSimulationWarning(false);
-        return;
-      }
-      setSelectedFile(file);
-      setExternalError(null);
-
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      if (activeMode === 'document' && fileExtension === 'docx') {
-        setShowDocxSimulationWarning(true);
-      } else {
-        setShowDocxSimulationWarning(false);
-      }
-    }
-  }, [isLoading, activeMode, onTabularFileProcessed, onDocumentOrTextProcessed]); // Dependencies updated
-
-  const acceptedFileTypes = {
-    tabular: ".csv,.tsv,.xls,.xlsx",
-    document: ".pdf,.doc,.docx,.txt", // .doc tidak benar-benar didukung
-    directText: "" 
-  };
-
-  const modeConfigs = {
-    tabular: {
-      title: "Analisis Data Tabular",
-      icon: ArrowUpTrayIcon,
+  const modeConfigs: ModeConfig[] = [
+    {
+      key: 'tabular', title: "Data Tabular", icon: DocumentDuplicateIcon,
       description: "Unggah file CSV, TSV, atau Excel Anda untuk dianalisis.",
-      fileTypesText: ".csv, .tsv, .xls, .xlsx. Maks: 10MB.",
-      uploadButtonText: "Proses File Tabular",
+      fileTypesText: `.csv, .tsv, .xls, .xlsx. Maks: ${(MAX_FILE_SIZE_TABULAR / (1024*1024)).toFixed(0)}MB.`,
+      submitButtonText: "Proses File Tabular",
+      acceptAttr: ".csv,.tsv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values",
     },
-    document: {
-      title: "Ringkasan & Tanya Jawab Dokumen",
-      icon: DocumentPlusIcon,
-      description: "Unggah file PDF, DOCX, atau TXT untuk diringkas dan ditanyai.",
-      fileTypesText: ".pdf, .docx, .txt. Maks: 5MB.",
-      uploadButtonText: "Proses File Dokumen",
+    {
+      key: 'document', title: "Dokumen", icon: DocumentChartBarIcon,
+      description: "Unggah file PDF, DOCX (simulasi), atau TXT untuk diringkas dan ditanyai.",
+      fileTypesText: `.pdf, .docx (simulasi), .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)}MB.`,
+      submitButtonText: "Proses File Dokumen",
+      acceptAttr: ".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain",
     },
-    directText: {
-      title: "Ringkasan & Tanya Jawab Teks Langsung",
-      icon: PencilIcon,
-      description: `Ketik atau tempel teks Anda di bawah ini (maks. ${MAX_WORDS} kata).`,
-      fileTypesText: "",
-      uploadButtonText: "Proses Teks",
+    {
+      key: 'directText', title: "Teks Langsung", icon: PencilSquareIcon,
+      description: `Ketik atau tempel teks Anda di bawah ini (maks. ${MAX_WORDS.toLocaleString('id-ID')} kata).`,
+      submitButtonText: "Proses Teks",
+    },
+    {
+      key: 'website', title: "URL Website", icon: LinkIcon,
+      description: "Masukkan URL website untuk diringkas dan ditanyai. Fitur ini memiliki keterbatasan (CORS, konten dinamis) dan mungkin tidak berfungsi untuk semua website.",
+      submitButtonText: "Proses URL",
     }
-  };
-  
-  const currentConfig = modeConfigs[activeMode];
+  ];
+
+  const currentConfig = modeConfigs.find(mc => mc.key === activeMode)!;
+  const SelectedFileIcon = selectedFile ? getFileIcon(selectedFile.name) : null;
+
 
   return (
-    <div className="space-y-8">
-      <div className="flex space-x-1 sm:space-x-2 rounded-lg bg-slate-700 p-1 shadow-md">
-        {(Object.keys(modeConfigs) as InputMode[]).map((mode) => (
-          <button
-            key={mode}
-            onClick={() => { setActiveMode(mode); resetInputFields();}}
-            className={`w-full px-3 py-2.5 text-sm font-medium leading-5 rounded-md
-                        focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-700 ring-primary-500
-                        transition-all duration-150
-                        ${activeMode === mode 
-                          ? 'bg-primary-600 text-white shadow-lg' 
-                          : 'text-slate-300 hover:bg-slate-600/70 hover:text-slate-100'}`}
-          >
-            {modeConfigs[mode].title}
-          </button>
-        ))}
+    <div className="w-full">
+      <div className="mb-6 border-b border-slate-200 dark:border-slate-700">
+        <nav className="-mb-px flex space-x-1 sm:space-x-2" aria-label="Tabs">
+          {modeConfigs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveMode(tab.key); resetInputFields(); }}
+              className={`whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-sm sm:text-base transition-colors duration-150 flex items-center space-x-2
+                ${activeMode === tab.key
+                  ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-500'
+                }`}
+              aria-current={activeMode === tab.key ? 'page' : undefined}
+            >
+              <tab.icon className="w-5 h-5" />
+              <span>{tab.title}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
-      <div className="bg-slate-700 p-6 sm:p-8 rounded-xl shadow-xl">
-        <div className="flex items-center text-2xl font-semibold mb-2 text-slate-100">
-          <currentConfig.icon className="h-8 w-8 mr-3 text-primary-400" />
-          <h2>{currentConfig.title}</h2>
+      <div className="mt-2">
+        <div className="flex items-center space-x-2 mb-1">
+            <currentConfig.icon className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-200">{currentConfig.title}</h2>
         </div>
-        <p className="text-slate-400 mb-6 text-sm">{currentConfig.description}</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">{currentConfig.description}</p>
 
         {activeMode === 'tabular' || activeMode === 'document' ? (
           <>
             {showDocxSimulationWarning && selectedFile && activeMode === 'document' && (
-              <div className="mb-4 p-3 bg-yellow-600/20 border border-yellow-500 text-yellow-300 rounded-lg text-sm flex items-start">
-                <ExclamationTriangleIcon className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0"/>
-                <div>
-                    <strong>Perhatian:</strong> Pemrosesan file <strong>.docx</strong> saat ini disimulasikan.
-                    Ringkasan dan tanya jawab akan didasarkan pada konten placeholder. 
-                    Untuk hasil terbaik dengan analisis dokumen, gunakan file <strong>.txt</strong>, <strong>.pdf</strong>, atau <strong>input teks langsung</strong>.
+                <div className="my-4 p-3 rounded-md bg-yellow-50 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-200 flex items-start space-x-2">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <h3 className="font-semibold text-sm">Perhatian</h3>
+                        <p className="text-xs">Pemrosesan file .docx saat ini disimulasikan. Ringkasan dan tanya jawab akan didasarkan pada konten placeholder. Untuk hasil terbaik, gunakan file .txt, .pdf, atau input teks langsung.</p>
+                    </div>
+                </div>
+            )}
+            <label
+              htmlFor="file-upload"
+              className={`mt-2 flex justify-center items-center w-full h-48 px-6 pt-5 pb-6 border-2 border-slate-300 dark:border-slate-600 border-dashed rounded-md cursor-pointer
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 dark:hover:border-blue-500 bg-slate-50 dark:bg-slate-700/30'}`}
+            >
+              <div className="space-y-1 text-center">
+                <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-slate-400 dark:text-slate-500" />
+                <div className="flex text-sm text-slate-600 dark:text-slate-300">
+                  <span className="relative font-medium text-blue-600 dark:text-blue-400 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                    Unggah file
+                  </span>
+                  <input id="file-upload" name="file-upload" type="file" className="sr-only" ref={fileInputRef} onChange={handleFileChange} accept={currentConfig.acceptAttr} disabled={isLoading} />
+                  <p className="pl-1">atau seret dan lepas</p>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{currentConfig.fileTypesText}</p>
+              </div>
+            </label>
+
+            {selectedFile && !isLoading && (
+              <div className="mt-4 p-3 border border-slate-200 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-slate-700/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {SelectedFileIcon && <SelectedFileIcon className="h-8 w-8 text-blue-500 dark:text-blue-400" />}
+                    <div>
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate max-w-xs sm:max-w-md">{selectedFile.name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleRemoveFile} 
+                    className="p-1 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 rounded-full"
+                    aria-label="Hapus file"
+                    title="Hapus file"
+                  >
+                    <XCircleIcon className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             )}
-            <div 
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`mt-4 border-2 border-dashed rounded-lg p-6 sm:p-10 text-center transition-all duration-200 ease-in-out group
-                          ${dragOver 
-                            ? 'border-primary-500 bg-slate-600/50 scale-102 shadow-inner' 
-                            : 'border-slate-500 hover:border-primary-400 bg-slate-650'}`}
-              role="button"
-              tabIndex={0}
-              aria-label={`Seret & lepas file ${currentConfig.fileTypesText} atau klik untuk memilih`}
-            >
-              <ArrowUpTrayIcon className={`h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-3 transition-colors duration-200 ${dragOver ? 'text-primary-400' : 'text-slate-400 group-hover:text-primary-300'}`} />
-              <input
-                type="file"
-                accept={acceptedFileTypes[activeMode]}
-                onChange={handleFileChange}
-                id={`fileInput-${activeMode}`}
-                className="sr-only"
-                disabled={isLoading}
-              />
-              <label
-                htmlFor={`fileInput-${activeMode}`}
-                className="cursor-pointer text-primary-400 hover:text-primary-300 font-medium text-base sm:text-lg"
-              >
-                Seret & lepas file di sini
-              </label>
-              <p className="text-slate-400 mt-1 text-xs sm:text-sm">atau klik untuk memilih file</p>
-              <p className="mt-3 text-xs text-slate-500">Tipe file yang didukung: {currentConfig.fileTypesText}</p>
-              
-              {selectedFile && !isLoading && (
-                <div className="mt-4 text-sm text-green-400 flex items-center justify-center bg-slate-700/50 p-2 rounded-md">
-                  <CheckCircleIcon className="h-5 w-5 mr-2" />
-                  <span>Terpilih: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</span>
-                </div>
-              )}
-            </div>
             {selectedFile && !isLoading && (
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={isLoading}
-                className="mt-8 w-full sm:w-auto px-10 py-3 bg-primary-600 text-white font-semibold rounded-lg shadow-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 flex items-center justify-center mx-auto transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+                className="mt-6 w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                {currentConfig.uploadButtonText}
+                {currentConfig.submitButtonText}
               </button>
             )}
           </>
-        ) : (
-          <div className="mt-4">
+        ) : activeMode === 'directText' ? (
+          <div className="mt-1">
             <textarea
               value={directText}
               onChange={handleDirectTextChange}
               placeholder="Ketik atau tempel teks di sini..."
-              className="w-full h-48 sm:h-60 p-4 bg-slate-600 border border-slate-500 rounded-lg text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all duration-150 shadow-sm resize-y"
+              rows={8}
               disabled={isLoading}
-              aria-label="Area input teks langsung"
-            ></textarea>
-            <div className="flex justify-between items-center mt-2 text-sm">
-              <p className={`text-xs ${wordCount > MAX_WORDS ? 'text-red-400' : 'text-slate-400'}`}>
-                Jumlah kata: {wordCount} / {MAX_WORDS}
+              className="block w-full shadow-sm sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <div className="mt-2 flex justify-between items-center">
+              <p className={`text-xs ${wordCount > MAX_WORDS ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                Jumlah kata: {wordCount.toLocaleString('id-ID')} / {MAX_WORDS.toLocaleString('id-ID')}
               </p>
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={isLoading || directText.trim() === '' || wordCount > MAX_WORDS}
-                className="px-8 py-2.5 bg-primary-600 text-white font-semibold rounded-lg shadow-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 flex items-center justify-center transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
-                {currentConfig.uploadButtonText}
+                {currentConfig.submitButtonText}
               </button>
             </div>
           </div>
-        )}
-        
+        ) : activeMode === 'website' ? (
+          <div className="mt-1">
+            <input
+              type="url"
+              value={websiteUrl}
+              onChange={handleWebsiteUrlChange}
+              placeholder="Contoh: https://www.example.com/article"
+              disabled={isLoading}
+              className="block w-full shadow-sm sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500 py-2.5 px-3"
+            />
+             <div className="mt-3 p-3 rounded-md bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50 text-blue-700 dark:text-blue-300 flex items-start space-x-2">
+                <InformationCircleIcon className="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs">Pengambilan konten website memiliki keterbatasan (misalnya karena CORS atau konten dinamis) dan mungkin tidak berfungsi untuk semua website. Jika gagal, coba salin teks dari website secara manual ke mode 'Teks Langsung'.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isLoading || websiteUrl.trim() === ''}
+              className="mt-6 w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              {currentConfig.submitButtonText}
+            </button>
+          </div>
+        ) : null}
+
         {isLoading && (
-          <div className="mt-8 flex flex-col items-center justify-center text-center">
-            <Spinner size="md" color="text-primary-400" />
-            <p className="mt-3 text-slate-300 text-sm">{loadingMessage}</p>
+          <div className="mt-6 text-center">
+            <div className="inline-flex items-center space-x-2 text-slate-600 dark:text-slate-300">
+              <svg className="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>{loadingMessage}</span>
+            </div>
           </div>
         )}
-        
+
         {(activeMode === 'tabular' || activeMode === 'document') && !selectedFile && !isLoading && (
-            <div className="mt-6 p-3 bg-sky-700/20 border border-sky-600 rounded-lg text-sm text-sky-300 flex items-start">
-                <InformationCircleIcon className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0"/>
-                <span>Untuk memulai, silakan pilih atau seret file ke area di atas sesuai dengan tipe yang diinginkan.</span>
+           <div className="mt-4 p-3 rounded-md bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50 text-blue-700 dark:text-blue-300 flex items-start space-x-2">
+              <InformationCircleIcon className="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs">Untuk memulai, silakan pilih atau seret file ke area di atas sesuai dengan tipe yang diinginkan.</p>
+          </div>
+        )}
+         {activeMode === 'website' && !websiteUrl && !isLoading && (
+             <div className="mt-4 p-3 rounded-md bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50 text-blue-700 dark:text-blue-300 flex items-start space-x-2">
+                <InformationCircleIcon className="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs">Untuk memulai, masukkan URL website yang valid pada kolom di atas.</p>
             </div>
         )}
       </div>

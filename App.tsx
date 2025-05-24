@@ -1,22 +1,33 @@
-
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useContext } from 'react';
 import { InputSection } from './components/InputSection';
 import { DataOverview } from './components/DataOverview';
 import { DataVisualizer } from './components/DataVisualizer';
 import { InsightsGenerator } from './components/InsightsGenerator';
 import { QAChat } from './components/QAChat';
-import { ParsedCsvData, ColumnInfo } from './types';
-import { parseCSV, analyzeColumns, extractTextFromFile, calculateDynamicStat, SupportedCalculation } from './services/dataAnalysisService';
-import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest, CalculationInterpretation } from './services/geminiService';
-import { ArrowUpTrayIcon, TableCellsIcon, ChartBarIcon, SparklesIcon, ChatBubbleLeftRightIcon, ExclamationTriangleIcon, DocumentTextIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
+import { ParsedCsvData } from './types';
+import { analyzeColumns, SupportedCalculation as SupportedCalculationType } from './services/dataAnalysisService';
+import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest } from './services/geminiService';
+import { ThemeContext } from './index';
+
+import {
+  ArrowDownTrayIcon,
+  TableCellsIcon,
+  ChartBarIcon,
+  LightBulbIcon,
+  ChatBubbleLeftEllipsisIcon,
+  ExclamationTriangleIcon,
+  SunIcon,
+  MoonIcon,
+  XCircleIcon,
+} from '@heroicons/react/24/outline';
 
 type ActiveSection = 'input' | 'overview' | 'visualize' | 'insights' | 'qa';
 export type AppMode = 'dataAnalysis' | 'documentQa';
-export type ActiveInputType = 'tabular' | 'document' | 'directText';
+export type ActiveInputType = 'tabular' | 'document' | 'directText' | 'website';
 
-// Helper function to format data summary once
 const formatDataSummaryForAI = (data: ParsedCsvData | null): string => {
     if (!data) return "Tidak ada data tabular yang dimuat.";
+    // ... (formatting logic remains the same)
     let summary = `Dataset: ${data.fileName}\n`;
     summary += `Total Baris: ${data.rowCount}, Total Kolom: ${data.columnCount}\n\n`;
     summary += "Detail Kolom (Nama Kolom: Tipe Data [Statistik Utama jika relevan]):\n";
@@ -55,6 +66,7 @@ const App: React.FC = () => {
   const [parsedData, setParsedData] = useState<ParsedCsvData | null>(null);
   const [processedTextContent, setProcessedTextContent] = useState<string | null>(null);
   const [documentSummary, setDocumentSummary] = useState<string | null>(null);
+  const [activeInputSourceIdentifier, setActiveInputSourceIdentifier] = useState<string | undefined>(undefined);
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('Memproses...');
@@ -64,11 +76,13 @@ const App: React.FC = () => {
   const [currentMode, setCurrentMode] = useState<AppMode>('dataAnalysis'); 
 
   const dataSummaryForAI = useMemo(() => formatDataSummaryForAI(parsedData), [parsedData]);
+  const { themeMode, toggleTheme } = useContext(ThemeContext);
 
   const resetAppStateForNewInput = () => {
     setParsedData(null);
     setProcessedTextContent(null);
     setDocumentSummary(null);
+    setActiveInputSourceIdentifier(undefined);
     setError(null);
   };
 
@@ -77,6 +91,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setLoadingMessage("Menganalisis kolom data tabular...");
     setCurrentMode('dataAnalysis');
+    setActiveInputSourceIdentifier(file.name);
     try {
       const columnInfos = analyzeColumns(parsed.rows, parsed.headers);
       const fullParsedData: ParsedCsvData = {
@@ -92,6 +107,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Error analyzing columns:", e);
       setError(`Gagal menganalisis kolom: ${e instanceof Error ? e.message : String(e)}`);
+      setActiveInputSourceIdentifier(undefined);
       setActiveSection('input');
     } finally {
       setIsLoading(false);
@@ -104,6 +120,7 @@ const App: React.FC = () => {
     setLoadingMessage(`Memproses konten dari ${sourceName} dan membuat ringkasan...`);
     setCurrentMode('documentQa');
     setProcessedTextContent(text);
+    setActiveInputSourceIdentifier(sourceName);
     try {
       const summary = await summarizeContent(text);
       setDocumentSummary(summary);
@@ -112,12 +129,12 @@ const App: React.FC = () => {
       console.error("Error summarizing content:", e);
       setError(`Gagal membuat ringkasan: ${e instanceof Error ? e.message : String(e)}`);
       setDocumentSummary(null);
+      setActiveInputSourceIdentifier(undefined);
       setActiveSection('input'); 
     } finally {
       setIsLoading(false);
     }
   }, []);
-
 
   const handleGenerateInsights = useCallback(async () => {
     if (!parsedData || currentMode !== 'dataAnalysis') return "Tidak ada data tabular untuk menghasilkan wawasan.";
@@ -125,8 +142,6 @@ const App: React.FC = () => {
     setLoadingMessage("Menghasilkan wawasan AI...");
     setError(null);
     try {
-      // Menggunakan dataSummaryForAI yang sudah di-memoize jika formatnya sama
-      // atau mengirim parsedData langsung jika generateInsights mengharapkan objek penuh
       const insights = await generateInsights(parsedData); 
       return insights;
     } catch (e) {
@@ -150,14 +165,14 @@ const App: React.FC = () => {
         const interpretation = await interpretUserCalculationRequest(question, parsedData.columnInfos);
         let calculatedValue: number | string | null = null;
         let calculationAttempted = false;
+        const { calculateDynamicStat } = await import('./services/dataAnalysisService');
 
         if (interpretation.operation !== "UNKNOWN" && interpretation.columnName && !interpretation.errorMessage) {
           const targetColumnInfo = parsedData.columnInfos.find(c => c.name.toLowerCase() === interpretation.columnName!.toLowerCase());
           
           if (targetColumnInfo) {
             calculationAttempted = true;
-            // Coba ambil dari ColumnStats dulu
-            const op = interpretation.operation as SupportedCalculation;
+            const op = interpretation.operation as SupportedCalculationType;
             switch (op) {
               case "AVERAGE": calculatedValue = targetColumnInfo.stats.mean ?? null; break;
               case "MEDIAN": calculatedValue = targetColumnInfo.stats.median ?? null; break;
@@ -172,21 +187,20 @@ const App: React.FC = () => {
               case "COUNTUNIQUE":
                 calculatedValue = targetColumnInfo.stats.uniqueValues?.length ?? null;
                 break;
-              // SUM dan VAR perlu perhitungan dinamis
               case "SUM":
               case "VAR":
                 calculatedValue = calculateDynamicStat(parsedData.rows, targetColumnInfo.name, op, targetColumnInfo.type);
                 break;
               default:
-                calculationAttempted = false; // Operasi tidak ditangani di sini, biarkan AI
+                calculationAttempted = false; 
             }
 
             if (calculatedValue !== null) {
                calculationResultContext = `Sistem melakukan perhitungan ${op} pada kolom "${targetColumnInfo.name}" dan hasilnya adalah ${typeof calculatedValue === 'number' ? calculatedValue.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 2}) : calculatedValue}.`;
-            } else if(calculationAttempted) { // Kalkulasi dicoba tapi gagal/null
+            } else if(calculationAttempted) { 
                calculationResultContext = `Sistem mencoba melakukan perhitungan ${op} pada kolom "${targetColumnInfo.name}", tetapi hasilnya tidak dapat ditentukan (mungkin karena tipe data tidak sesuai atau tidak ada data yang valid).`;
             }
-          } else { // Kolom tidak ditemukan oleh interpretasi AI
+          } else { 
              calculationResultContext = `Sistem mencoba menginterpretasi permintaan untuk kolom "${interpretation.columnName}", tetapi kolom tersebut tidak ditemukan dalam dataset.`;
           }
         } else if (interpretation.errorMessage) {
@@ -198,7 +212,7 @@ const App: React.FC = () => {
       } else if (currentMode === 'documentQa' && processedTextContent) {
         return await answerQuestionFromContent(processedTextContent, question);
       }
-      return "Konteks tidak tersedia untuk menjawab pertanyaan. Silakan unggah data atau dokumen terlebih dahulu.";
+      return "Konteks tidak tersedia untuk menjawab pertanyaan. Silakan unggah data, dokumen, atau URL terlebih dahulu.";
     } catch (e) {
       console.error("Error answering question:", e);
       const errorMessage = `Gagal menjawab pertanyaan: ${e instanceof Error ? e.message : String(e)}`;
@@ -209,20 +223,23 @@ const App: React.FC = () => {
     }
   }, [parsedData, processedTextContent, currentMode, dataSummaryForAI]);
   
+  const commonDisabledMessage = (
+    <div className="text-center p-8 mt-4 bg-white dark:bg-slate-800 rounded-lg shadow">
+      <ExclamationTriangleIcon className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+      <h2 className="text-xl font-semibold mb-4 text-slate-700 dark:text-slate-300">
+        Silakan input data, dokumen, atau URL terlebih dahulu untuk mengakses bagian ini.
+      </h2>
+      <button
+          type="button"
+          onClick={() => setActiveSection('input')}
+          className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150"
+      >
+          Ke Halaman Input
+      </button>
+    </div>
+  );
+  
   const renderSection = () => {
-    const commonDisabledMessage = (
-        <div className="text-center p-8 bg-slate-700 rounded-xl shadow-lg">
-            <ExclamationTriangleIcon className="h-16 w-16 text-yellow-400 mx-auto mb-6" />
-            <p className="text-xl text-slate-200 mb-6">Silakan input data atau dokumen terlebih dahulu untuk mengakses bagian ini.</p>
-            <button
-                onClick={() => setActiveSection('input')}
-                className="mt-4 px-8 py-3 bg-primary-600 text-white font-semibold rounded-lg shadow-md hover:bg-primary-700 transition-all duration-150"
-            >
-                Ke Halaman Input Data
-            </button>
-        </div>
-    );
-
     switch (activeSection) {
       case 'input':
         return <InputSection 
@@ -248,7 +265,7 @@ const App: React.FC = () => {
                   currentMode={currentMode}
                   documentSummary={documentSummary}
                   processedTextContent={processedTextContent}
-                  fileName={currentMode === 'dataAnalysis' ? parsedData?.fileName : undefined}
+                  sourceIdentifier={activeInputSourceIdentifier}
                 /> : commonDisabledMessage;
       default:
         return <InputSection 
@@ -263,112 +280,111 @@ const App: React.FC = () => {
     }
   };
   
-  interface NavButtonProps {
-    section: ActiveSection;
+  interface NavItem {
+    key: ActiveSection;
     label: string;
-    icon: React.ElementType;
+    icon: React.ElementType; // Heroicon components
     requiredMode?: AppMode; 
+    disabled?: boolean;
   }
 
-  const NavButton: React.FC<NavButtonProps> = ({ section, label, icon: Icon, requiredMode }) => {
-    let isDisabled = false;
-    if (section !== 'input') {
-      if (requiredMode === 'dataAnalysis') {
-        if (!parsedData || currentMode !== 'dataAnalysis') {
-          isDisabled = true;
-        }
-      } else if (requiredMode === 'documentQa') {
-        if (!processedTextContent || currentMode !== 'documentQa') {
-          isDisabled = true;
-        }
-      // FIX: Corrected logic for QA button disable state
-      // The 'else' block handles the 'qa' section which has no 'requiredMode'.
-      // It should be disabled if the current mode's required data is not available.
-      } else if (section === 'qa') { // Specifically for QA button
-        if (currentMode === 'dataAnalysis' && !parsedData) {
-             isDisabled = true;
-        } else if (currentMode === 'documentQa' && !processedTextContent) {
-             isDisabled = true;
-        }
+  const navItems: NavItem[] = useMemo(() => {
+    const baseItems: Array<{ key: ActiveSection; label: string; icon: React.ElementType; requiredMode?: AppMode }> = [
+      { key: 'input', label: "Input", icon: ArrowDownTrayIcon },
+      { key: 'overview', label: "Ringkasan", icon: TableCellsIcon, requiredMode: 'dataAnalysis' },
+      { key: 'visualize', label: "Visualisasi", icon: ChartBarIcon, requiredMode: 'dataAnalysis' },
+      { key: 'insights', label: "Wawasan", icon: LightBulbIcon, requiredMode: 'dataAnalysis' },
+      { key: 'qa', label: "Tanya Jawab", icon: ChatBubbleLeftEllipsisIcon },
+    ];
+
+    return baseItems.map((item): NavItem => {
+      let isDisabled = false;
+      if (item.key !== 'input') {
+          if (item.requiredMode === 'dataAnalysis') {
+              if (!parsedData || currentMode !== 'dataAnalysis') isDisabled = true;
+          } else if (item.requiredMode === 'documentQa') {
+              if (!processedTextContent || currentMode !== 'documentQa') isDisabled = true;
+          } else if (item.key === 'qa') { 
+              if (currentMode === 'dataAnalysis' && !parsedData) isDisabled = true;
+              else if (currentMode === 'documentQa' && !processedTextContent) isDisabled = true;
+          }
       }
+      return { ...item, disabled: isDisabled };
+    });
+  }, [parsedData, processedTextContent, currentMode]);
+
+  const handleMenuClick = (key: ActiveSection) => {
+    const item = navItems.find(i => i.key === key);
+    if (item && !item.disabled) {
+      setActiveSection(key);
     }
-
-
-    return (
-        <li className="flex-1">
-        <button
-            onClick={() => {
-                if (isDisabled) return;
-                setActiveSection(section);
-            }}
-            disabled={isDisabled}
-            className={`w-full h-full flex flex-col items-center justify-center p-1 md:p-2 
-                        focus:outline-none focus:ring-1 focus:ring-primary-500/80 focus:ring-offset-2 focus:ring-offset-slate-800 rounded-md
-                        transition-all duration-150 group
-                        ${activeSection === section 
-                        ? 'text-primary-400 bg-primary-500/10' 
-                        : 'text-slate-400 hover:text-primary-300 hover:bg-slate-700/60'}
-                        ${isDisabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-            aria-current={activeSection === section ? 'page' : undefined}
-            aria-label={label}
-        >
-            <Icon className={`h-5 w-5 md:h-6 md:w-6 mb-0.5 transition-colors ${activeSection === section && !isDisabled ? 'text-primary-400' : (isDisabled ? 'text-slate-500' : 'text-slate-400 group-hover:text-primary-300')}`} />
-            <span className="text-xs truncate w-full text-center max-w-[80px] md:max-w-none">{label}</span>
-        </button>
-        </li>
-    );
   };
 
-
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
-      <header className="bg-slate-800/80 backdrop-blur-md shadow-lg p-4 sticky top-0 z-40">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-cyan-400">
-            Penganalisis Data & Dokumen Gemini
-          </h1>
-        </div>
+    <div className="flex flex-col min-h-screen bg-slate-100 dark:bg-slate-900">
+      <header 
+        className="sticky top-0 z-50 w-full flex items-center justify-between px-4 sm:px-6 py-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm"
+      >
+        <h1 className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400 truncate">
+          Penganalisis Data & Dokumen Gemini
+        </h1>
+        <button 
+          onClick={toggleTheme} 
+          className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+          aria-label="Toggle theme"
+          title={themeMode === 'dark' ? "Ganti ke mode terang" : "Ganti ke mode gelap"}
+        >
+          {themeMode === 'dark' ? <SunIcon className="w-6 h-6" /> : <MoonIcon className="w-6 h-6" />}
+        </button>
       </header>
-
-      {error && (
-        <div className="bg-red-600/90 text-white p-3 sm:p-4 mx-2 sm:mx-4 mt-4 rounded-lg shadow-md flex justify-between items-center transition-opacity duration-300 ease-in-out opacity-100" role="alert">
-          <div className="flex items-center">
-            <ExclamationTriangleIcon className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3 flex-shrink-0"/>
-            <span className="text-sm sm:text-base">{error}</span>
-          </div>
-          <button 
-            onClick={() => setError(null)} 
-            className="ml-3 sm:ml-4 text-xl sm:text-2xl font-bold hover:text-red-200 transition-colors flex-shrink-0"
-            aria-label="Tutup pesan error"
-          >
-            &times;
-          </button>
-        </div>
-      )}
       
-      <div className="flex-grow overflow-y-auto pb-16 md:pb-20"> 
-        <div className="container mx-auto p-2 sm:p-4">
-          <main className="w-full bg-slate-800 p-3 sm:p-6 rounded-xl shadow-2xl min-h-[calc(100vh-200px)]">
-            {renderSection()}
-          </main>
+      <main className="flex-grow p-4 sm:p-6 overflow-y-auto mb-20"> {/* mb-20 for footer space */}
+        {error && (
+          <div
+            className="mb-4 p-4 rounded-md bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-200 flex items-start justify-between break-words"
+            role="alert"
+          >
+            <div>
+                <h3 className="font-semibold">Error</h3>
+                <p className="text-sm">{error}</p>
+            </div>
+            <button onClick={() => setError(null)} className="ml-2 p-1 text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-100 rounded-full focus:outline-none focus:ring-2 focus:ring-red-500">
+                <XCircleIcon className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+        <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-lg shadow-lg min-h-[calc(100vh-250px)]">
+          {renderSection()}
         </div>
-        
-        <footer className="text-center p-5 text-sm text-slate-400 border-t border-slate-700 mt-8">
-          &copy; {new Date().getFullYear()} Bagas Wibowo. Hak Cipta Dilindungi.
-        </footer>
+      </main>
+      
+      <footer 
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-top"
+        // shadow-top is a custom class you might define or use a similar Tailwind utility
+      >
+        <nav className="flex justify-around items-center h-16 max-w-2xl mx-auto px-2">
+          {navItems.map(item => (
+            <button
+              key={item.key}
+              onClick={() => handleMenuClick(item.key)}
+              disabled={item.disabled}
+              className={`flex flex-col items-center justify-center p-2 rounded-md w-1/5 text-xs sm:text-sm transition-colors duration-150
+                ${activeSection === item.key 
+                  ? 'text-blue-600 dark:text-blue-400' 
+                  : 'text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-300'}
+                ${item.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+              aria-current={activeSection === item.key ? 'page' : undefined}
+            >
+              <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-0.5 ${activeSection === item.key ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </footer>
+       <div className="text-center py-3 px-6 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 mt-auto">
+         &copy; {new Date().getFullYear()} Bagas Wibowo. Hak Cipta Dilindungi.
       </div>
-
-      <nav className="fixed bottom-0 left-0 right-0 h-16 md:h-20 bg-slate-800 border-t border-slate-700 shadow-lg z-50">
-        <ul className="flex justify-around items-stretch h-full max-w-screen-md mx-auto px-1 md:px-2">
-          <NavButton section="input" label="Input Data" icon={PencilSquareIcon} />
-          <NavButton section="overview" label="Ringkasan Data" icon={TableCellsIcon} requiredMode="dataAnalysis"/>
-          <NavButton section="visualize" label="Visualisasi" icon={ChartBarIcon} requiredMode="dataAnalysis"/>
-          <NavButton section="insights" label="Wawasan AI" icon={SparklesIcon} requiredMode="dataAnalysis"/>
-          <NavButton section="qa" label="Tanya Jawab" icon={ChatBubbleLeftRightIcon} />
-        </ul>
-      </nav>
     </div>
   );
 };
-
 export default App;
