@@ -18,7 +18,8 @@
     "axios": "^1.9.0",
     "@vercel/node": "^5.1.16",
     "cheerio": "^1.0.0",
-    "@heroicons/react": "2.2.0"
+    "@heroicons/react": "2.2.0",
+    "mammoth": "1.8.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

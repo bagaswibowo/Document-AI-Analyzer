@@ -1,6 +1,7 @@
 
 import { DataRow, ColumnInfo, DataType, ColumnStats, ParsedCsvData } from '../types';
 import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
 
 // Tip: Set pdfjsLib.GlobalWorkerOptions.workerSrc di index.html atau saat aplikasi diinisialisasi.
 
@@ -187,15 +188,6 @@ export const parseExcel = async (file: File): Promise<ParsedCsvData> => {
   });
 };
 
-const generateMockDocxContent = (fileName: string): string => {
-  return `[SIMULASI EKSTRAKSI KONTEN DOKUMEN - ${fileName}]
-
-Dokumen DOCX ini (${fileName}) tampaknya berisi informasi yang relevan. 
-Kontennya bisa berupa laporan, artikel, atau catatan.
-
-(CATATAN PENTING: Ini adalah TEKS SIMULASI. Aplikasi ini saat ini TIDAK memiliki kemampuan untuk mengekstrak konten aktual dari file DOCX. Fungsionalitas ekstraksi teks penuh dari file DOCX memerlukan integrasi pustaka eksternal khusus. Oleh karena itu, ringkasan dan tanya jawab untuk file ini akan didasarkan pada teks simulasi ini, BUKAN konten file asli Anda. Untuk analisis konten dokumen yang sebenarnya, silakan gunakan file .txt, .pdf (jika didukung), atau fitur input teks langsung.)`;
-};
-
 async function extractTextFromPdfWithPdfJs(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -208,8 +200,6 @@ async function extractTextFromPdfWithPdfJs(file: File): Promise<string> {
         const typedArray = new Uint8Array(event.target.result as ArrayBuffer);
         
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-            // Pengaturan workerSrc seharusnya sudah dilakukan di index.html.
-            // Jika tidak, PDF.js mungkin akan gagal atau mencoba memuat dari path default.
             console.warn('pdfjsLib.GlobalWorkerOptions.workerSrc tidak diatur. Ekstraksi PDF mungkin gagal atau menggunakan path default yang mungkin tidak berfungsi dengan esm.sh. Pastikan ini diatur dengan benar (misalnya, di index.html).');
         }
 
@@ -248,6 +238,41 @@ async function extractTextFromPdfWithPdfJs(file: File): Promise<string> {
   });
 }
 
+async function extractTextFromDocxOrDocWithMammoth(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        if (!event.target?.result) {
+          reject(new Error(`Gagal membaca file ${file.name}: tidak ada hasil dari pembaca file.`));
+          return;
+        }
+        const arrayBuffer = event.target.result as ArrayBuffer;
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        resolve(result.value);
+      } catch (error) {
+        console.error(`Kesalahan saat parsing ${file.name} dengan Mammoth.js:`, error);
+        let errorMessage = `Gagal mengekstrak teks dari ${file.name}. `;
+        if (error instanceof Error) {
+          errorMessage += error.message;
+        } else {
+          errorMessage += String(error);
+        }
+        if (file.name.toLowerCase().endsWith('.doc')) {
+            errorMessage += " Format .doc (Word 97-2003) mungkin memiliki keterbatasan dalam ekstraksi client-side, terutama untuk file kompleks."
+        }
+        reject(new Error(errorMessage));
+      }
+    };
+    reader.onerror = (error) => {
+      console.error(`Kesalahan FileReader saat membaca ${file.name}:`, error);
+      reject(new Error(`Gagal membaca file ${file.name} dari disk.`));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+
 export const extractTextFromFile = async (file: File): Promise<string> => {
   const fileName = file.name.toLowerCase();
   const fileType = fileName.split('.').pop() || 'tidak diketahui';
@@ -257,67 +282,11 @@ export const extractTextFromFile = async (file: File): Promise<string> => {
   } else if (fileName.endsWith('.pdf')) {
     console.log("Mencoba mengekstrak teks dari PDF menggunakan PDF.js...");
     return extractTextFromPdfWithPdfJs(file);
-  } else if (fileName.endsWith('.docx')) {
-    console.warn("Ekstraksi teks DOCX disimulasikan. Implementasi penuh memerlukan pustaka seperti Mammoth.js.");
-    return generateMockDocxContent(file.name);
+  } else if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
+    console.log(`Mencoba mengekstrak teks dari ${fileType.toUpperCase()} menggunakan Mammoth.js...`);
+    return extractTextFromDocxOrDocWithMammoth(file);
   }
   throw new Error(`Tipe file .${fileType} tidak didukung untuk ekstraksi teks langsung.`);
-};
-
-
-export const fetchWebsiteContent = async (url: string): Promise<string> => {
-  // URL ke Serverless Function Anda di Vercel.
-  // Parameter 'url' di-encode dengan benar.
-  const proxyUrl = `/api/fetch-website-proxy?url=${encodeURIComponent(url)}`;
-
-  try {
-    console.log(`Frontend: Meminta konten dari proxy: ${proxyUrl}`);
-    const response = await fetch(proxyUrl);
-
-    if (!response.ok) {
-      let errorMessage = `Gagal mengambil konten dari URL melalui proxy: Status ${response.status} ${response.statusText}.`;
-      try {
-        const errorData = await response.json();
-        if (errorData && errorData.error) {
-          errorMessage += ` Detail dari server proxy: ${errorData.error}`;
-        } else {
-          errorMessage += ` Respons dari server proxy tidak berisi detail error dalam format JSON yang diharapkan.`;
-        }
-      } catch (jsonError) {
-        errorMessage += ` Gagal mem-parsing pesan error JSON dari server proxy.`;
-      }
-      console.error("Frontend: " + errorMessage);
-      // Lempar error yang akan ditangkap oleh handler di InputSection.tsx
-      throw new Error(errorMessage + " Pastikan Serverless Function Anda (/api/fetch-website-proxy) berjalan dengan benar dan URL target dapat diakses dari server. Anda juga bisa mencoba menyalin teks dari website secara manual.");
-    }
-
-    const data = await response.json();
-
-    if (!data || typeof data.extractedText !== 'string') {
-       console.error("Frontend: Respons dari proxy tidak valid atau tidak berisi 'extractedText'. Data:", data);
-      throw new Error("Respons dari proxy Serverless Function tidak valid atau tidak berisi 'extractedText'. Pastikan fungsi mengembalikan format JSON yang benar: { extractedText: '...' }.");
-    }
-    
-    if (!data.extractedText.trim()) {
-        console.log("Frontend: Proxy mengembalikan teks kosong.");
-        return "Tidak ada konten teks yang signifikan yang dapat diekstrak dari website ini melalui proxy.";
-    }
-
-    console.log("Frontend: Konten berhasil diterima dari proxy.");
-    return data.extractedText;
-
-  } catch (error) {
-    console.error('Frontend: Error saat mengambil konten website via proxy:', error);
-    if (error instanceof Error) {
-        // Jika error sudah merupakan pesan yang informatif dari blok try di atas, lempar kembali
-        if (error.message.includes("proxy") || error.message.includes("Serverless Function")) {
-            throw error;
-        }
-        // Untuk error jaringan umum saat menghubungi proxy
-        throw new Error(`Gagal menghubungi proxy Serverless Function di ${proxyUrl}. Error: ${error.message}. Pastikan Serverless Function Anda telah di-deploy dan dapat diakses.`);
-    }
-    throw new Error('Terjadi kesalahan yang tidak diketahui saat mengambil konten website melalui proxy Serverless Function.');
-  }
 };
 
 

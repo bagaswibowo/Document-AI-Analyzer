@@ -32,9 +32,6 @@ function getAiInstance(): GoogleGenAI {
 
 const modelName = 'gemini-2.5-flash-preview-04-17';
 
-// Helper function to check for API key and ai instance readiness (diganti dengan getAiInstance)
-// function ensureApiReady(): GoogleGenAI { ... }
-
 function formatDataSummaryForPrompt(data: ParsedCsvData): string {
   let summary = `Dataset: ${data.fileName}\n`;
   summary += `Baris: ${data.rowCount}, Kolom: ${data.columnCount}\n\n`;
@@ -65,7 +62,7 @@ function formatDataSummaryForPrompt(data: ParsedCsvData): string {
 
 function enhanceErrorMessage(error: unknown): string {
     let baseMessage = `Permintaan API Gemini gagal: ${error instanceof Error ? error.message : String(error)}`;
-    const errorMessageString = String(error).toLowerCase(); // Convert to lower case for robust checking
+    const errorMessageString = String(error).toLowerCase(); 
     if (errorMessageString.includes("permission_denied") || errorMessageString.includes("403")) {
         baseMessage += "\n\nSaran: Ini mungkin karena API Key yang digunakan tidak memiliki izin yang diperlukan untuk layanan Gemini atau model yang diminta. Silakan periksa konfigurasi API Key Anda di Google Cloud Console (pastikan Generative Language API atau Vertex AI API diaktifkan dan kunci memiliki hak akses yang benar).";
     } else if (errorMessageString.includes("api key not valid") || errorMessageString.includes("api_key_not_valid")) {
@@ -74,6 +71,8 @@ function enhanceErrorMessage(error: unknown): string {
         baseMessage += "\n\nSaran: Anda mungkin telah melebihi kuota permintaan API Anda. Silakan periksa kuota Anda di Google Cloud Console dan coba lagi nanti.";
     } else if (errorMessageString.includes("model_not_found") || errorMessageString.includes("model not found")) {
         baseMessage += `\n\nSaran: Model '${modelName}' tidak ditemukan atau tidak tersedia untuk API Key Anda. Pastikan nama model sudah benar dan API Key Anda memiliki akses ke model tersebut.`;
+    }  else if (errorMessageString.includes("grounding") && errorMessageString.includes("tool")) {
+        baseMessage += `\n\nSaran: Terjadi masalah dengan alat grounding (Google Search). Ini mungkin masalah sementara atau konfigurasi alat. Pastikan model mendukung alat yang diminta.`;
     }
     return baseMessage;
 }
@@ -81,7 +80,7 @@ function enhanceErrorMessage(error: unknown): string {
 export interface CalculationInterpretation {
   operation: "SUM" | "AVERAGE" | "MEDIAN" | "MODE" | "MIN" | "MAX" | "COUNT" | "COUNTA" | "COUNTUNIQUE" | "STDEV" | "VAR" | "UNKNOWN";
   columnName: string | null;
-  errorMessage?: string; // e.g., "COLUMN_NOT_FOUND", "OPERATION_UNCLEAR", "MULTIPLE_COLUMNS_AMBIGUOUS"
+  errorMessage?: string; 
 }
 
 
@@ -122,7 +121,7 @@ Objek JSON Hasil Interpretasi:
     const response: GenerateContentResponse = await currentAi.models.generateContent({
       model: modelName,
       contents: prompt,
-      config: { responseMimeType: "application/json" } // Meminta output JSON
+      config: { responseMimeType: "application/json" } 
     });
 
     let jsonStr = response.text.trim();
@@ -134,16 +133,13 @@ Objek JSON Hasil Interpretasi:
     
     const parsed = JSON.parse(jsonStr) as CalculationInterpretation;
 
-    // Validasi tambahan
     if (!validOperations.includes(parsed.operation as any) && parsed.operation !== "UNKNOWN") {
-        // Jika operasi tidak valid tapi bukan UNKNOWN, set ke UNKNOWN dan beri pesan
         console.warn(`Operasi tidak valid diterima dari AI: ${parsed.operation}. Diubah menjadi UNKNOWN.`);
         parsed.errorMessage = parsed.errorMessage || `Operasi '${parsed.operation}' tidak dikenali.`;
         parsed.operation = "UNKNOWN";
     }
     if (parsed.columnName && !availableColumns.some(c => c.name.toLowerCase() === (parsed.columnName || '').toLowerCase())) {
         parsed.errorMessage = parsed.errorMessage || `Kolom '${parsed.columnName}' tidak ditemukan.`;
-        // parsed.columnName = null; // Biarkan nama kolom apa adanya untuk pelaporan error
     }
 
     return parsed;
@@ -151,7 +147,6 @@ Objek JSON Hasil Interpretasi:
   } catch (error) {
     console.error("Kesalahan API Gemini (interpretUserCalculationRequest):", error);
     console.error("Pertanyaan yang menyebabkan error:", question);
-    // Kembalikan struktur default jika terjadi error parsing atau API
     return {
       operation: "UNKNOWN",
       columnName: null,
@@ -190,9 +185,9 @@ Wawasan (dalam bahasa yang sederhana):
 };
 
 export const answerQuestion = async (
-    dataSummary: string, // Diubah untuk menerima summary yang sudah diformat
+    dataSummary: string, 
     question: string,
-    calculationResultContext?: string // Konteks hasil perhitungan yang sudah dilakukan
+    calculationResultContext?: string 
   ): Promise<string> => {
   const currentAi = getAiInstance();
   
@@ -303,6 +298,70 @@ Jawaban (berdasarkan konten yang disediakan, dalam bahasa sederhana):
     return response.text;
   } catch (error) {
     console.error("Kesalahan API Gemini (answerQuestionFromContent):", error);
+    throw new Error(enhanceErrorMessage(error));
+  }
+};
+
+export const evaluateDocumentWithReferences = async (textContent: string): Promise<string> => {
+  const currentAi = getAiInstance();
+  const prompt = `
+Anda adalah seorang editor dan peneliti ahli.
+Tugas Anda adalah mengevaluasi kualitas teks berikut, memberikan saran perbaikan yang konstruktif, dan menemukan referensi dari internet yang mendukung atau mengkontraskan poin-poin utama dalam teks.
+
+Teks untuk dievaluasi:
+---
+${textContent.substring(0, 28000)} ${textContent.length > 28000 ? "... (konten dipotong untuk keamanan dan batas token)" : ""}
+---
+
+Instruksi:
+1.  **Evaluasi Kualitas**: Berikan analisis mengenai kejelasan, kelengkapan, akurasi (berdasarkan pengetahuan umum dan referensi yang Anda temukan), dan potensi bias dalam teks. Gunakan poin-poin atau paragraf.
+2.  **Saran Perbaikan**: Berikan saran konkret tentang bagaimana teks tersebut dapat ditingkatkan (misalnya, menambahkan detail, mengklarifikasi poin, memperbaiki struktur, sumber yang lebih beragam, dll.). Gunakan poin-poin atau paragraf.
+3.  **Referensi Internet**: Temukan dan sebutkan 2-4 sumber valid dari internet (berita, artikel ilmiah, laporan organisasi terpercaya) yang relevan dengan topik utama teks. Untuk setiap referensi, sebutkan bagaimana referensi tersebut mendukung, mengkontraskan, atau memberikan konteks tambahan pada poin-poin dalam teks yang dievaluasi.
+
+Format output Anda dalam Markdown.
+Jika tidak ada referensi yang relevan ditemukan oleh pencarian, sebutkan itu dengan jelas.
+Pastikan setiap URL yang disertakan adalah URL lengkap yang valid.
+`;
+
+  try {
+    const response: GenerateContentResponse = await currentAi.models.generateContent({
+      model: modelName, // Harus mendukung grounding tools
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }], // Mengaktifkan Google Search grounding
+      },
+    });
+
+    let evaluationText = response.text;
+
+    const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+    if (groundingMetadata?.groundingChunks && groundingMetadata.groundingChunks.length > 0) {
+      let sourcesMarkdown = "\n\n---\n### Sumber Referensi dari Internet:\n";
+      const uniqueSources = new Map<string, string>(); // Untuk menghindari duplikasi URL
+
+      groundingMetadata.groundingChunks.forEach(chunk => {
+        if (chunk.web && chunk.web.uri && chunk.web.title) {
+          if (!uniqueSources.has(chunk.web.uri)) {
+            uniqueSources.set(chunk.web.uri, chunk.web.title);
+          }
+        }
+      });
+      
+      if (uniqueSources.size > 0) {
+        uniqueSources.forEach((title, uri) => {
+            sourcesMarkdown += `- [${title.replace(/\[|\]/g, '')}](${uri})\n`; // Membersihkan judul dari kurung siku
+        });
+      } else {
+        sourcesMarkdown += "\nTidak ada sumber referensi spesifik yang ditemukan oleh pencarian Google untuk mendukung evaluasi ini.\n";
+      }
+      evaluationText += sourcesMarkdown;
+    } else {
+      evaluationText += "\n\n---\n### Sumber Referensi dari Internet:\n\nTidak ada sumber referensi yang ditemukan oleh pencarian Google untuk mendukung evaluasi ini.\n";
+    }
+
+    return evaluationText;
+  } catch (error) {
+    console.error("Kesalahan API Gemini (evaluateDocumentWithReferences):", error);
     throw new Error(enhanceErrorMessage(error));
   }
 };

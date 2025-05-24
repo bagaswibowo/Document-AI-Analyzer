@@ -1,13 +1,14 @@
+
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { InputSection } from './components/InputSection';
 import { DataOverview } from './components/DataOverview';
 import { DataVisualizer } from './components/DataVisualizer';
 import { InsightsGenerator } from './components/InsightsGenerator';
 import { QAChat } from './components/QAChat';
+import { DocumentEvaluator } from './components/DocumentEvaluator';
 import { ParsedCsvData } from './types';
 import { analyzeColumns, SupportedCalculation as SupportedCalculationType } from './services/dataAnalysisService';
-import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest } from './services/geminiService';
-// ThemeContext and theme icons (SunIcon, MoonIcon) are removed
+import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest, evaluateDocumentWithReferences } from './services/geminiService';
 
 import {
   ArrowDownTrayIcon,
@@ -17,15 +18,15 @@ import {
   ChatBubbleLeftEllipsisIcon,
   ExclamationTriangleIcon,
   XCircleIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 
-type ActiveSection = 'input' | 'overview' | 'visualize' | 'insights' | 'qa';
+type ActiveSection = 'input' | 'overview' | 'visualize' | 'insights' | 'qa' | 'evaluate';
 export type AppMode = 'dataAnalysis' | 'documentQa';
-export type ActiveInputType = 'tabular' | 'document' | 'directText' | 'website';
+export type ActiveInputType = 'tabular' | 'document' | 'directText';
 
 const formatDataSummaryForAI = (data: ParsedCsvData | null): string => {
     if (!data) return "Tidak ada data tabular yang dimuat.";
-    // ... (formatting logic remains the same)
     let summary = `Dataset: ${data.fileName}\n`;
     summary += `Total Baris: ${data.rowCount}, Total Kolom: ${data.columnCount}\n\n`;
     summary += "Detail Kolom (Nama Kolom: Tipe Data [Statistik Utama jika relevan]):\n";
@@ -73,15 +74,22 @@ const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<ActiveSection>('input');
   const [currentMode, setCurrentMode] = useState<AppMode>('dataAnalysis'); 
 
-  const dataSummaryForAI = useMemo(() => formatDataSummaryForAI(parsedData), [parsedData]);
-  // themeMode and toggleTheme removed
+  const [documentEvaluation, setDocumentEvaluation] = useState<string | null>(null);
+  const [evaluationLoading, setEvaluationLoading] = useState<boolean>(false);
 
-  const resetAppStateForNewInput = () => {
+
+  const dataSummaryForAI = useMemo(() => formatDataSummaryForAI(parsedData), [parsedData]);
+
+  const resetAppStateForNewInput = (keepCurrentMode: boolean = false) => {
     setParsedData(null);
     setProcessedTextContent(null);
     setDocumentSummary(null);
+    setDocumentEvaluation(null); 
     setActiveInputSourceIdentifier(undefined);
     setError(null);
+    if (!keepCurrentMode) {
+        setCurrentMode('dataAnalysis'); // Default ke dataAnalysis kecuali diminta untuk mempertahankan
+    }
   };
 
   const handleTabularFileProcessed = useCallback(async (file: File, parsed: ParsedCsvData) => {
@@ -112,8 +120,8 @@ const App: React.FC = () => {
     }
   }, []);
   
-  const handleDocumentOrTextProcessed = useCallback(async (text: string, sourceName: string) => {
-    resetAppStateForNewInput();
+  const handleDocumentOrTextProcessed = useCallback(async (text: string, sourceName: string, navigateToEvaluation: boolean = false) => {
+    resetAppStateForNewInput(true); // Keep current mode if processing for evaluation from within evaluator
     setIsLoading(true);
     setLoadingMessage(`Memproses konten dari ${sourceName} dan membuat ringkasan...`);
     setCurrentMode('documentQa');
@@ -122,12 +130,12 @@ const App: React.FC = () => {
     try {
       const summary = await summarizeContent(text);
       setDocumentSummary(summary);
-      setActiveSection('qa'); 
+      setActiveSection(navigateToEvaluation ? 'evaluate' : 'qa'); 
     } catch (e) {
       console.error("Error summarizing content:", e);
       setError(`Gagal membuat ringkasan: ${e instanceof Error ? e.message : String(e)}`);
       setDocumentSummary(null);
-      setActiveInputSourceIdentifier(undefined);
+      // Don't reset source identifier here, as text is processed
       setActiveSection('input'); 
     } finally {
       setIsLoading(false);
@@ -221,19 +229,43 @@ const App: React.FC = () => {
     }
   }, [parsedData, processedTextContent, currentMode, dataSummaryForAI]);
   
-  const commonDisabledMessage = (
+  const handleEvaluateDocument = useCallback(async () => {
+    if (currentMode !== 'documentQa' || !processedTextContent) {
+      setError("Tidak ada konten dokumen untuk dievaluasi.");
+      return;
+    }
+    setEvaluationLoading(true);
+    setError(null);
+    setDocumentEvaluation(null);
+    try {
+      const evaluation = await evaluateDocumentWithReferences(processedTextContent);
+      setDocumentEvaluation(evaluation);
+    } catch (e) {
+      console.error("Error evaluating document:", e);
+      const errorMessage = `Gagal mengevaluasi dokumen: ${e instanceof Error ? e.message : String(e)}`;
+      setError(errorMessage);
+      setDocumentEvaluation(null); 
+    } finally {
+      setEvaluationLoading(false);
+    }
+  }, [processedTextContent, currentMode]);
+
+
+  const commonDisabledMessage = (message: string, showInputButton: boolean = true) => (
     <div className="text-center p-8 mt-4 bg-white rounded-lg shadow">
       <ExclamationTriangleIcon className="w-16 h-16 text-amber-500 mx-auto mb-4" />
       <h2 className="text-xl font-semibold mb-4 text-slate-700">
-        Silakan input data, dokumen, atau URL terlebih dahulu untuk mengakses bagian ini.
+        {message}
       </h2>
-      <button
-          type="button"
-          onClick={() => setActiveSection('input')}
-          className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150"
-      >
-          Ke Halaman Input
-      </button>
+      {showInputButton && (
+          <button
+              type="button"
+              onClick={() => setActiveSection('input')}
+              className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150"
+          >
+              Ke Halaman Input
+          </button>
+      )}
     </div>
   );
   
@@ -250,11 +282,11 @@ const App: React.FC = () => {
                   setLoadingMessage={setLoadingMessage}
                 />;
       case 'overview':
-        return currentMode === 'dataAnalysis' && parsedData ? <DataOverview data={parsedData} /> : commonDisabledMessage;
+        return currentMode === 'dataAnalysis' && parsedData ? <DataOverview data={parsedData} /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
       case 'visualize':
-        return currentMode === 'dataAnalysis' && parsedData ? <DataVisualizer data={parsedData} /> : commonDisabledMessage;
+        return currentMode === 'dataAnalysis' && parsedData ? <DataVisualizer data={parsedData} /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
       case 'insights':
-        return currentMode === 'dataAnalysis' && parsedData ? <InsightsGenerator onGenerateInsights={handleGenerateInsights} isLoading={isLoading} /> : commonDisabledMessage;
+        return currentMode === 'dataAnalysis' && parsedData ? <InsightsGenerator onGenerateInsights={handleGenerateInsights} isLoading={isLoading} /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
       case 'qa':
         return (currentMode === 'dataAnalysis' && parsedData) || (currentMode === 'documentQa' && processedTextContent) ? 
                <QAChat 
@@ -264,7 +296,20 @@ const App: React.FC = () => {
                   documentSummary={documentSummary}
                   processedTextContent={processedTextContent}
                   sourceIdentifier={activeInputSourceIdentifier}
-                /> : commonDisabledMessage;
+                /> : commonDisabledMessage("Silakan input data, dokumen, atau teks terlebih dahulu untuk mengakses bagian ini.");
+      case 'evaluate':
+        // DocumentEvaluator will handle its own input if processedTextContent is null
+        return <DocumentEvaluator
+                  originalContent={processedTextContent}
+                  onEvaluate={handleEvaluateDocument}
+                  isLoading={evaluationLoading} // This is for AI evaluation call
+                  evaluationResult={documentEvaluation}
+                  sourceIdentifier={activeInputSourceIdentifier}
+                  onDocumentUploadedAndProcessed={handleDocumentOrTextProcessed} // Pass app's handler
+                  setAppIsLoading={setIsLoading} // Pass app's general loader state setters
+                  setAppLoadingMessage={setLoadingMessage}
+                  setAppError={setError}
+               />;
       default:
         return <InputSection 
                   onTabularFileProcessed={handleTabularFileProcessed} 
@@ -281,7 +326,7 @@ const App: React.FC = () => {
   interface NavItem {
     key: ActiveSection;
     label: string;
-    icon: React.ElementType; // Heroicon components
+    icon: React.ElementType; 
     requiredMode?: AppMode; 
     disabled?: boolean;
   }
@@ -293,18 +338,19 @@ const App: React.FC = () => {
       { key: 'visualize', label: "Visualisasi", icon: ChartBarIcon, requiredMode: 'dataAnalysis' },
       { key: 'insights', label: "Wawasan", icon: LightBulbIcon, requiredMode: 'dataAnalysis' },
       { key: 'qa', label: "Tanya Jawab", icon: ChatBubbleLeftEllipsisIcon },
+      { key: 'evaluate', label: "Evaluasi", icon: ClipboardDocumentCheckIcon }, // No longer 'documentQa' requiredMode here, always enabled
     ];
 
     return baseItems.map((item): NavItem => {
       let isDisabled = false;
-      if (item.key !== 'input') {
+      if (item.key !== 'input' && item.key !== 'evaluate') { // Evaluasi always enabled
           if (item.requiredMode === 'dataAnalysis') {
               if (!parsedData || currentMode !== 'dataAnalysis') isDisabled = true;
-          } else if (item.requiredMode === 'documentQa') {
+          } else if (item.requiredMode === 'documentQa') { // This might be unused now for evaluate
               if (!processedTextContent || currentMode !== 'documentQa') isDisabled = true;
           } else if (item.key === 'qa') { 
               if (currentMode === 'dataAnalysis' && !parsedData) isDisabled = true;
-              else if (currentMode === 'documentQa' && !processedTextContent) isDisabled = true;
+              else if (currentMode === 'documentQa' && !processedTextContent && item.requiredMode !== 'dataAnalysis') isDisabled = true; // Check if not data analysis mode
           }
       }
       return { ...item, disabled: isDisabled };
@@ -314,6 +360,13 @@ const App: React.FC = () => {
   const handleMenuClick = (key: ActiveSection) => {
     const item = navItems.find(i => i.key === key);
     if (item && !item.disabled) {
+      if (activeSection === 'evaluate' && key !== 'evaluate') {
+        // setDocumentEvaluation(null); // Consider if this reset is still needed or handled differently
+      }
+      // Jika pindah ke tab 'evaluate' dan belum ada dokumen, pastikan mode adalah 'documentQa'
+      if (key === 'evaluate' && !processedTextContent) {
+        setCurrentMode('documentQa');
+      }
       setActiveSection(key);
     }
   };
@@ -324,12 +377,11 @@ const App: React.FC = () => {
         className="sticky top-0 z-50 w-full flex items-center justify-between px-4 sm:px-6 py-3 bg-white border-b border-slate-200 shadow-sm"
       >
         <h1 className="text-xl sm:text-2xl font-bold text-blue-600 truncate">
-          Penganalisis Data & Dokumen Gemini
+          Penganalisis & Evaluator Dokumen Gemini
         </h1>
-        {/* Theme toggle button removed */}
       </header>
       
-      <main className="flex-grow p-4 sm:p-6 overflow-y-auto mb-20"> {/* mb-20 for footer space */}
+      <main className="flex-grow p-4 sm:p-6 overflow-y-auto mb-20">
         {error && (
           <div
             className="mb-4 p-4 rounded-md bg-red-50 border border-red-200 text-red-700 flex items-start justify-between break-words"

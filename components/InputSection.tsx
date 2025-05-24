@@ -1,23 +1,21 @@
 
 import React, { useState, useCallback, useRef, ChangeEvent } from 'react';
 import { ParsedCsvData } from '../types';
-import { parseCSV, parseExcel, extractTextFromFile, fetchWebsiteContent } from '../services/dataAnalysisService';
+import { parseCSV, parseExcel, extractTextFromFile } from '../services/dataAnalysisService';
 
 import {
   ArrowUpTrayIcon,
   DocumentTextIcon,
   PencilSquareIcon,
-  LinkIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
   XCircleIcon,
   DocumentDuplicateIcon, 
   DocumentChartBarIcon, 
-  SparklesIcon 
 } from '@heroicons/react/24/outline';
 
 
-type InputMode = 'tabular' | 'document' | 'directText' | 'website';
+type InputMode = 'tabular' | 'document' | 'directText';
 
 interface InputSectionProps {
   onTabularFileProcessed: (file: File, parsedData: ParsedCsvData) => void;
@@ -37,6 +35,8 @@ interface ModeConfig {
   fileTypesText?: string;
   submitButtonText: string;
   acceptAttr?: string;
+  showDocWarning?: (fileName: string) => boolean;
+  docWarningText?: string;
 }
 
 export const InputSection: React.FC<InputSectionProps> = ({
@@ -51,22 +51,46 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const [activeMode, setActiveMode] = useState<InputMode>('tabular');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [directText, setDirectText] = useState<string>('');
-  const [websiteUrl, setWebsiteUrl] = useState<string>('');
   const [wordCount, setWordCount] = useState<number>(0);
-  const [showDocxSimulationWarning, setShowDocxSimulationWarning] = useState<boolean>(false);
+  const [showSpecificDocWarning, setShowSpecificDocWarning] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_WORDS = 20000;
   const MAX_FILE_SIZE_TABULAR = 15 * 1024 * 1024; // 15MB
   const MAX_FILE_SIZE_DOCUMENT = 10 * 1024 * 1024; // 10MB
 
+  const modeConfigs: ModeConfig[] = [
+    {
+      key: 'tabular', title: "Data Tabular", icon: DocumentDuplicateIcon,
+      description: "Unggah file CSV, TSV, atau Excel Anda untuk dianalisis.",
+      fileTypesText: `.csv, .tsv, .xls, .xlsx. Maks: ${(MAX_FILE_SIZE_TABULAR / (1024*1024)).toFixed(0)}MB.`,
+      submitButtonText: "Proses File Tabular",
+      acceptAttr: ".csv,.tsv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values",
+    },
+    {
+      key: 'document', title: "Dokumen", icon: DocumentChartBarIcon,
+      description: "Unggah file PDF, DOCX, DOC, atau TXT untuk diringkas dan ditanyai.",
+      fileTypesText: `.pdf, .docx, .doc, .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)}MB.`,
+      submitButtonText: "Proses File Dokumen",
+      acceptAttr: ".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain",
+      showDocWarning: (fileName: string) => fileName.toLowerCase().endsWith('.doc'),
+      docWarningText: "Dukungan untuk format .doc (Word 97-2003) mungkin terbatas, terutama untuk file dengan tata letak kompleks. Hasil ekstraksi teks mungkin tidak sempurna. Untuk hasil terbaik, disarankan menggunakan format .docx atau .pdf."
+    },
+    {
+      key: 'directText', title: "Teks Langsung", icon: PencilSquareIcon,
+      description: `Ketik atau tempel teks Anda di bawah ini (maks. ${MAX_WORDS.toLocaleString('id-ID')} kata).`,
+      submitButtonText: "Proses Teks",
+    },
+  ];
+  
+  const currentConfig = modeConfigs.find(mc => mc.key === activeMode)!;
+
   const resetInputFields = () => {
     setSelectedFile(null);
     setDirectText('');
-    setWebsiteUrl('');
     setWordCount(0);
     setExternalError(null);
-    setShowDocxSimulationWarning(false);
+    setShowSpecificDocWarning(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = ""; 
     }
@@ -74,7 +98,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     setExternalError(null);
-    setShowDocxSimulationWarning(false);
+    setShowSpecificDocWarning(false);
     const file = event.target.files?.[0];
 
     if (file) {
@@ -86,9 +110,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
         return;
       }
       setSelectedFile(file);
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      if (activeMode === 'document' && fileExtension === 'docx') {
-        setShowDocxSimulationWarning(true);
+      if (activeMode === 'document' && currentConfig.showDocWarning?.(file.name)) {
+        setShowSpecificDocWarning(true);
       }
     } else {
       setSelectedFile(null);
@@ -98,7 +121,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const handleRemoveFile = () => {
     setSelectedFile(null);
     setExternalError(null);
-    setShowDocxSimulationWarning(false);
+    setShowSpecificDocWarning(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -111,8 +134,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
         return DocumentDuplicateIcon; 
       case 'pdf':
         return DocumentChartBarIcon; 
-      case 'docx':
-        return SparklesIcon; 
+      case 'docx': case 'doc':
+        return DocumentDuplicateIcon; // Using same as tabular for Word docs
       case 'txt':
         return DocumentTextIcon;
       default:
@@ -132,11 +155,6 @@ export const InputSection: React.FC<InputSectionProps> = ({
     }
   };
 
-  const handleWebsiteUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setWebsiteUrl(event.target.value);
-    setExternalError(null);
-  };
-
   const processTabularFile = async (file: File) => {
     setIsLoading(true);
     setLoadingMessage(`Memproses file tabular ${file.name}...`);
@@ -144,7 +162,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
     try {
       let parsed: ParsedCsvData;
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      const fileText = await file.text();
+      const fileText = await file.text(); // Only for CSV/TSV initially
 
       if (fileExtension === 'csv') {
         const { headers, rows } = parseCSV(fileText, ',');
@@ -153,6 +171,8 @@ export const InputSection: React.FC<InputSectionProps> = ({
         const { headers, rows } = parseCSV(fileText, '\t');
         parsed = { headers, rows, columnInfos: [], rowCount: rows.length, columnCount: headers.length, sampleRows: [], fileName: file.name };
       } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        // parseExcel currently uses a mock that tries to parse as CSV. 
+        // For a real implementation, SheetJS would be used here.
         parsed = await parseExcel(file); 
       } else {
         throw new Error("Tipe file tabular tidak didukung.");
@@ -183,37 +203,6 @@ export const InputSection: React.FC<InputSectionProps> = ({
     }
   };
 
-  const processWebsiteUrl = async (url: string) => {
-    if (!url.trim() || !url.trim().toLowerCase().startsWith('http')) {
-        setExternalError("Silakan masukkan URL yang valid (dimulai dengan http:// atau https://).");
-        return;
-    }
-    setIsLoading(true);
-    setLoadingMessage(`Mengambil dan memproses konten dari ${url}...`);
-    setExternalError(null);
-    try {
-        const textContent = await fetchWebsiteContent(url);
-        if (!textContent.trim()) {
-          throw new Error("Tidak ada konten teks yang dapat diekstrak dari URL ini atau website kosong.");
-        }
-        onDocumentOrTextProcessed(textContent, url);
-    } catch (e) {
-        console.error("Error processing website URL:", e);
-        let displayErrorMessage;
-        if (e instanceof Error) {
-            if (e.message.includes("Gagal mengambil data dari URL") || e.message.includes("Gagal mengambil konten dari URL") || e.message.includes("CORS") || e.message.includes("proxy")) {
-                displayErrorMessage = e.message;
-            } else {
-                displayErrorMessage = `Gagal memproses URL: ${e.message}. Pertimbangkan bahwa ini mungkin disebabkan oleh kebijakan CORS, masalah jaringan, atau website yang tidak dapat diakses. Anda dapat mencoba menyalin teks dari website secara manual dan menggunakan mode 'Teks Langsung'.`;
-            }
-        } else {
-            displayErrorMessage = `Gagal memproses URL: ${String(e)}. Pertimbangkan bahwa ini mungkin disebabkan oleh kebijakan CORS, masalah jaringan, atau website yang tidak dapat diakses. Anda dapat mencoba menyalin teks dari website secara manual dan menggunakan mode 'Teks Langsung'.`;
-        }
-        setExternalError(displayErrorMessage);
-        setIsLoading(false);
-    }
-  };
-
   const handleSubmit = async () => {
     if (activeMode === 'tabular' && selectedFile) {
       await processTabularFile(selectedFile);
@@ -232,41 +221,10 @@ export const InputSection: React.FC<InputSectionProps> = ({
       setLoadingMessage("Memproses teks input...");
       setExternalError(null);
       onDocumentOrTextProcessed(directText, "Teks Langsung");
-    } else if (activeMode === 'website' && websiteUrl) {
-      await processWebsiteUrl(websiteUrl);
-    }
+    } 
   };
 
-  const modeConfigs: ModeConfig[] = [
-    {
-      key: 'tabular', title: "Data Tabular", icon: DocumentDuplicateIcon,
-      description: "Unggah file CSV, TSV, atau Excel Anda untuk dianalisis.",
-      fileTypesText: `.csv, .tsv, .xls, .xlsx. Maks: ${(MAX_FILE_SIZE_TABULAR / (1024*1024)).toFixed(0)}MB.`,
-      submitButtonText: "Proses File Tabular",
-      acceptAttr: ".csv,.tsv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values",
-    },
-    {
-      key: 'document', title: "Dokumen", icon: DocumentChartBarIcon,
-      description: "Unggah file PDF, DOCX (simulasi), atau TXT untuk diringkas dan ditanyai.",
-      fileTypesText: `.pdf, .docx (simulasi), .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)}MB.`,
-      submitButtonText: "Proses File Dokumen",
-      acceptAttr: ".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain",
-    },
-    {
-      key: 'directText', title: "Teks Langsung", icon: PencilSquareIcon,
-      description: `Ketik atau tempel teks Anda di bawah ini (maks. ${MAX_WORDS.toLocaleString('id-ID')} kata).`,
-      submitButtonText: "Proses Teks",
-    },
-    {
-      key: 'website', title: "URL Website", icon: LinkIcon,
-      description: "Masukkan URL website untuk diringkas dan ditanyai. Fitur ini memiliki keterbatasan (CORS, konten dinamis) dan mungkin tidak berfungsi untuk semua website.",
-      submitButtonText: "Proses URL",
-    }
-  ];
-
-  const currentConfig = modeConfigs.find(mc => mc.key === activeMode)!;
   const SelectedFileIcon = selectedFile ? getFileIcon(selectedFile.name) : null;
-
 
   return (
     <div className="w-full">
@@ -301,12 +259,12 @@ export const InputSection: React.FC<InputSectionProps> = ({
 
         {activeMode === 'tabular' || activeMode === 'document' ? (
           <>
-            {showDocxSimulationWarning && selectedFile && activeMode === 'document' && (
+            {showSpecificDocWarning && selectedFile && activeMode === 'document' && currentConfig.docWarningText && (
                 <div className="my-4 p-3 rounded-md bg-yellow-50 border border-yellow-300 text-yellow-700 flex items-start space-x-2">
                     <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
                     <div>
-                        <h3 className="font-semibold text-sm">Perhatian</h3>
-                        <p className="text-xs">Pemrosesan file .docx saat ini disimulasikan. Ringkasan dan tanya jawab akan didasarkan pada konten placeholder. Untuk hasil terbaik, gunakan file .txt, .pdf, atau input teks langsung.</p>
+                        <h3 className="font-semibold text-sm">Catatan untuk file .doc</h3>
+                        <p className="text-xs">{currentConfig.docWarningText}</p>
                     </div>
                 </div>
             )}
@@ -384,30 +342,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
               </button>
             </div>
           </div>
-        ) : activeMode === 'website' ? (
-          <div className="mt-1">
-            <input
-              type="url"
-              value={websiteUrl}
-              onChange={handleWebsiteUrlChange}
-              placeholder="Contoh: https://www.example.com/article"
-              disabled={isLoading}
-              className="block w-full shadow-sm sm:text-sm border-slate-300 rounded-md bg-white text-slate-900 focus:ring-blue-500 focus:border-blue-500 py-2.5 px-3"
-            />
-             <div className="mt-3 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 flex items-start space-x-2">
-                <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs">Pengambilan konten website memiliki keterbatasan (misalnya karena CORS atau konten dinamis) dan mungkin tidak berfungsi untuk semua website. Jika gagal, coba salin teks dari website secara manual ke mode 'Teks Langsung'.</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isLoading || websiteUrl.trim() === ''}
-              className="mt-6 w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {currentConfig.submitButtonText}
-            </button>
-          </div>
-        ) : null}
+        ) : null }
 
         {isLoading && (
           <div className="mt-6 text-center">
@@ -426,12 +361,6 @@ export const InputSection: React.FC<InputSectionProps> = ({
               <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs">Untuk memulai, silakan pilih atau seret file ke area di atas sesuai dengan tipe yang diinginkan.</p>
           </div>
-        )}
-         {activeMode === 'website' && !websiteUrl && !isLoading && (
-             <div className="mt-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-700 flex items-start space-x-2">
-                <InformationCircleIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs">Untuk memulai, masukkan URL website yang valid pada kolom di atas.</p>
-            </div>
         )}
       </div>
     </div>
