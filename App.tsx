@@ -6,7 +6,9 @@ import { DataVisualizer } from './components/DataVisualizer';
 import { InsightsGenerator } from './components/InsightsGenerator';
 import { QAChat } from './components/QAChat';
 import { DocumentEvaluator } from './components/DocumentEvaluator';
-import { HowToUseGuide } from './components/HowToUseGuide';
+import { GuidePage } from './components/GuidePage';
+import { FirstVisitModal } from './components/FirstVisitModal';
+import { GuideBanner } from './components/GuideBanner';
 import { ParsedCsvData } from './types';
 import { analyzeColumns, SupportedCalculation as SupportedCalculationType } from './services/dataAnalysisService';
 import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest, evaluateDocumentWithReferences } from './services/aiService';
@@ -21,12 +23,18 @@ import {
   ExclamationTriangleIcon,
   XCircleIcon,
   ClipboardDocumentCheckIcon,
-  // BookOpenIcon, // Dihapus dari sini karena navigasi bawah dihilangkan
+  QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline';
 
-type ActiveSection = 'input' | 'overview' | 'visualize' | 'insights' | 'qa' | 'evaluate' | 'howToUse';
+type ActiveSection = 'input' | 'overview' | 'visualize' | 'insights' | 'qa' | 'evaluate';
 export type AppMode = 'dataAnalysis' | 'documentQa';
 export type ActiveInputType = 'tabular' | 'document' | 'directText';
+type CurrentView = 'app' | 'guide';
+
+const LOCAL_STORAGE_KEYS = {
+  HAS_VISITED_BEFORE: 'appHasVisitedBefore',
+  // GUIDE_BANNER_DISMISSED is removed
+};
 
 const formatDataSummaryForAI = (data: ParsedCsvData | null): string => {
     if (!data) return "Tidak ada data tabular yang dimuat.";
@@ -80,32 +88,42 @@ const App: React.FC = () => {
   const [documentEvaluation, setDocumentEvaluation] = useState<string | null>(null);
   const [evaluationLoading, setEvaluationLoading] = useState<boolean>(false);
   const [toastConfig, setToastConfig] = useState<ToastConfig | null>(null);
-  const [previousActiveSection, setPreviousActiveSection] = useState<ActiveSection>('input');
+  
+  const [currentView, setCurrentView] = useState<CurrentView>('app');
+  const [showFirstVisitModal, setShowFirstVisitModal] = useState<boolean>(false);
+  // showGuideBanner state is removed, its rendering will be conditional
 
-
-  const dataSummaryForAI = useMemo(() => formatDataSummaryForAI(parsedData), [parsedData]);
 
   useEffect(() => {
-    const howToUseToastDismissed = localStorage.getItem('howToUseToastDismissed');
-    if (!howToUseToastDismissed) {
-      setToastConfig({
-        id: 'howToUseInitialToast',
-        message: "Baru di sini? Lihat panduan cara menggunakan aplikasi ini!",
-        type: 'info',
-        duration: 10000, 
-        action: {
-          label: 'Lihat Panduan',
-          onClick: () => {
-            setPreviousActiveSection(activeSection);
-            setActiveSection('howToUse');
-            localStorage.setItem('howToUseToastDismissed', 'true');
-            setToastConfig(null);
-          }
-        }
-      });
+    const hasVisited = localStorage.getItem(LOCAL_STORAGE_KEYS.HAS_VISITED_BEFORE);
+    if (!hasVisited) {
+      setShowFirstVisitModal(true);
     }
+    // Banner visibility is now derived from currentView and showFirstVisitModal
   }, []);
 
+  const handleDismissFirstVisitModal = useCallback(() => {
+    setShowFirstVisitModal(false);
+    localStorage.setItem(LOCAL_STORAGE_KEYS.HAS_VISITED_BEFORE, 'true');
+    // Banner will show if currentView is 'app' and modal is false
+  }, []);
+
+  const handleNavigateToGuide = useCallback(() => {
+    setCurrentView('guide');
+    if (showFirstVisitModal) {
+        handleDismissFirstVisitModal(); 
+    }
+    // Banner will be hidden as currentView is 'guide'
+  }, [showFirstVisitModal, handleDismissFirstVisitModal]);
+
+  const handleNavigateToApp = useCallback(() => {
+    setCurrentView('app');
+    // Banner will show if currentView is 'app' and modal is false
+  }, []);
+
+  // handleDismissGuideBanner is removed
+
+  const dataSummaryForAI = useMemo(() => formatDataSummaryForAI(parsedData), [parsedData]);
 
   const resetAppStateForNewInput = (keepCurrentMode: boolean = false) => {
     setParsedData(null);
@@ -306,10 +324,6 @@ const App: React.FC = () => {
                   setExternalError={setError}
                   setIsLoading={setIsLoading}
                   setLoadingMessage={setLoadingMessage}
-                  onNavigateToGuide={() => {
-                    setPreviousActiveSection('input'); 
-                    setActiveSection('howToUse');
-                  }}
                 />;
       case 'overview':
         return currentMode === 'dataAnalysis' && parsedData ? <DataOverview data={parsedData} /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
@@ -339,8 +353,6 @@ const App: React.FC = () => {
                   setAppLoadingMessage={setLoadingMessage}
                   setAppError={setError}
                />;
-      case 'howToUse': 
-        return <HowToUseGuide onBack={() => setActiveSection(previousActiveSection || 'input')} />;
       default:
         return <InputSection 
                   onTabularFileProcessed={handleTabularFileProcessed} 
@@ -350,10 +362,6 @@ const App: React.FC = () => {
                   setExternalError={setError}
                   setIsLoading={setIsLoading}
                   setLoadingMessage={setLoadingMessage}
-                  onNavigateToGuide={() => {
-                    setPreviousActiveSection('input');
-                    setActiveSection('howToUse');
-                  }}
                 />;
     }
   };
@@ -364,6 +372,7 @@ const App: React.FC = () => {
     icon: React.ElementType; 
     requiredMode?: AppMode; 
     disabled?: boolean;
+    
   }
 
   const navItems: NavItem[] = useMemo(() => {
@@ -374,12 +383,10 @@ const App: React.FC = () => {
       { key: 'insights', label: "Wawasan", icon: LightBulbIcon, requiredMode: 'dataAnalysis' },
       { key: 'qa', label: "Tanya Jawab", icon: ChatBubbleLeftEllipsisIcon },
       { key: 'evaluate', label: "Evaluasi", icon: ClipboardDocumentCheckIcon }, 
-      // { key: 'howToUse', label: "Panduan", icon: BookOpenIcon }, // Dihapus dari navigasi bawah
     ];
 
     return baseItems.map((item): NavItem => {
       let isDisabled = false;
-      // 'howToUse' tidak lagi di sini, jadi logika pengecualiannya tidak diperlukan
       if (item.key !== 'input' && item.key !== 'evaluate') { 
           if (item.requiredMode === 'dataAnalysis') {
               if (!parsedData || currentMode !== 'dataAnalysis') isDisabled = true;
@@ -411,25 +418,15 @@ const App: React.FC = () => {
           }
         });
       } else {
-        if (key !== activeSection) {
-             setPreviousActiveSection(activeSection);
-        }
-        // Logika untuk howToUse tidak lagi diperlukan di sini karena tidak ada di navItems
-        if (activeSection === 'evaluate' && key !== 'evaluate' && key !== 'howToUse') {
-          // Logic for navigating away from evaluate
+        if (activeSection === 'evaluate' && key !== 'evaluate') {
+          // No specific action needed here for now
         }
         if (key === 'evaluate' && !processedTextContent) {
-          setCurrentMode('documentQa'); 
+          setCurrentMode('documentQa'); // Switch to document mode if trying to access evaluate without content
         }
         setActiveSection(key);
         setToastConfig(null); 
       }
-    } else if (key === 'howToUse') { // Penanganan manual jika howToUse dipanggil (misal dari toast/link)
-        if (key !== activeSection) {
-            setPreviousActiveSection(activeSection);
-        }
-        setActiveSection('howToUse');
-        setToastConfig(null);
     }
   };
 
@@ -438,24 +435,40 @@ const App: React.FC = () => {
       {toastConfig && (
           <ToastDisplay
             config={toastConfig}
-            onClose={() => {
-                if(toastConfig.id === 'howToUseInitialToast'){
-                    localStorage.setItem('howToUseToastDismissed', 'true');
-                }
-                setToastConfig(null);
-            }}
+            onClose={() => setToastConfig(null)}
           />
       )}
+      <FirstVisitModal 
+        isOpen={showFirstVisitModal}
+        onDismiss={handleDismissFirstVisitModal}
+        onViewGuide={handleNavigateToGuide}
+      />
+      
       <header 
         className="sticky top-0 z-50 w-full flex items-center justify-between px-4 sm:px-6 py-3 bg-white border-b border-slate-200 shadow-sm"
       >
         <h1 className="text-xl sm:text-2xl font-bold text-blue-600 truncate">
           Penganalisis & Evaluator Dokumen AI
         </h1>
+        <button
+          onClick={handleNavigateToGuide}
+          className="p-2 text-slate-600 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-full"
+          aria-label="Buka panduan penggunaan"
+          title="Panduan Penggunaan"
+        >
+          <QuestionMarkCircleIcon className="w-6 h-6" />
+        </button>
       </header>
+
+      {currentView === 'app' && !showFirstVisitModal && (
+         <GuideBanner 
+            onViewGuide={handleNavigateToGuide}
+            // onDismiss prop is removed
+         />
+      )}
       
       <main className="flex-grow p-4 sm:p-6 overflow-y-auto mb-20">
-        {error && (
+        {error && currentView === 'app' && (
           <div
             className="mb-4 p-4 rounded-md bg-red-50 border border-red-200 text-red-700 flex items-start justify-between break-words"
             role="alert"
@@ -469,37 +482,43 @@ const App: React.FC = () => {
             </button>
           </div>
         )}
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg min-h-[calc(100vh-250px)]">
-          {renderSection()}
-        </div>
+        
+        {currentView === 'app' ? (
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg min-h-[calc(100vh-250px)]">
+            {renderSection()}
+          </div>
+        ) : (
+          <GuidePage onBackToApp={handleNavigateToApp} />
+        )}
       </main>
       
-      <footer 
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-top"
-      >
-        <nav className="grid grid-cols-6 items-center h-16 max-w-2xl mx-auto px-1">
-          {navItems.map(item => (
-            <button
-              key={item.key}
-              onClick={() => handleMenuClick(item.key)}
-              disabled={item.disabled} 
-              className={`flex flex-col items-center justify-center p-1 sm:p-2 rounded-md w-full text-xs sm:text-sm transition-colors duration-150
-                ${activeSection === item.key 
-                  ? 'text-blue-600' 
-                  : item.disabled ? 'text-slate-400 cursor-not-allowed' : 'text-slate-600 hover:text-blue-500'}
-                ${item.disabled ? 'opacity-70 cursor-not-allowed' : 'hover:bg-slate-100'}`}
-              aria-current={activeSection === item.key ? 'page' : undefined}
-              aria-disabled={item.disabled}
-              title={item.label}
-            >
-              <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-0.5 
-                ${activeSection === item.key ? 'text-blue-600' : item.disabled ? 'text-slate-400' : 'text-slate-600'}`} 
-              />
-              <span className="truncate max-w-full">{item.label}</span>
-            </button>
-          ))}
-        </nav>
-      </footer>
+      {currentView === 'app' && (
+        <footer 
+          className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-top"
+        >
+          <nav className="flex justify-around items-center h-16 max-w-2xl mx-auto px-2">
+            {navItems.map(item => (
+              <button
+                key={item.key}
+                onClick={() => handleMenuClick(item.key)}
+                disabled={item.disabled} 
+                className={`flex flex-col items-center justify-center p-2 rounded-md w-1/5 text-xs sm:text-sm transition-colors duration-150
+                  ${activeSection === item.key 
+                    ? 'text-blue-600' 
+                    : item.disabled ? 'text-slate-400 cursor-not-allowed' : 'text-slate-600 hover:text-blue-500'}
+                  ${item.disabled ? 'opacity-70 cursor-not-allowed' : 'hover:bg-slate-100'}`}
+                aria-current={activeSection === item.key ? 'page' : undefined}
+                aria-disabled={item.disabled}
+              >
+                <item.icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-0.5 
+                  ${activeSection === item.key ? 'text-blue-600' : item.disabled ? 'text-slate-400' : 'text-slate-600'}`} 
+                />
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </footer>
+      )}
        <div className="text-center py-3 px-6 text-xs text-slate-700 bg-slate-200 mt-auto">
          &copy; {new Date().getFullYear()} Bagas Wibowo. Hak Cipta Dilindungi.
       </div>

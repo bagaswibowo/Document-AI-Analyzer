@@ -62,11 +62,11 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
       code: ({node, inline, className, children, ...props}: any) => {
         const match = /language-(\w+)/.exec(className || '');
         return !inline ? (
-          <pre className={`my-3 p-3 rounded-md bg-sky-50 text-sky-900 font-mono overflow-x-auto text-sm ${className || ''}`} {...props}>
+          <pre className={`my-3 p-3 rounded-md bg-slate-100 overflow-x-auto text-sm ${className || ''}`} {...props}>
             <code className={`language-${match ? match[1] : 'text'}`}>{String(children).replace(/\n$/, '')}</code>
           </pre>
         ) : (
-          <code className="px-1 py-0.5 bg-slate-200 rounded text-sm text-pink-600 font-mono" {...props}>
+          <code className="px-1 py-0.5 bg-slate-200 rounded text-sm text-pink-600" {...props}>
             {children}
           </code>
         );
