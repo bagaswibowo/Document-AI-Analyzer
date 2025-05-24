@@ -201,7 +201,7 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
               <input id="internal-file-upload" name="internal-file-upload" type="file" className="sr-only" ref={internalFileInputRef} onChange={handleInternalFileChange} accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" disabled={isProcessingInternalFile} />
               <p className="pl-1">atau seret dan lepas</p>
             </div>
-            <p className="text-xs text-slate-600">.pdf, .docx, .doc, .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)} MB.</p>
+            <p className="text-xs text-slate-600">.pdf, .docx, .doc, .txt. Maks: {(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)} MB.</p>
           </div>
         </label>
 

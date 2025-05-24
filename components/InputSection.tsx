@@ -49,25 +49,19 @@ export const InputSection: React.FC<InputSectionProps> = ({
   setIsLoading,
   setLoadingMessage,
 }) => {
-  const [activeMode, setActiveMode] = useState<InputMode>('tabular');
+  const [activeMode, setActiveMode] = useState<InputMode>('document'); // Default to document
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [directText, setDirectText] = useState<string>('');
   const [wordCount, setWordCount] = useState<number>(0);
   const [showSpecificDocWarning, setShowSpecificDocWarning] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState<boolean>(false);
 
   const MAX_WORDS = 20000;
   const MAX_FILE_SIZE_TABULAR = 25 * 1024 * 1024; 
   const MAX_FILE_SIZE_DOCUMENT = 25 * 1024 * 1024; 
 
   const modeConfigs: ModeConfig[] = [
-    {
-      key: 'tabular', title: "Data Tabular", icon: DocumentDuplicateIcon, iconColorClass: "text-sky-600",
-      description: "Unggah file CSV, TSV, atau Excel Anda untuk dianalisis.",
-      fileTypesText: `.csv, .tsv, .xls, .xlsx. Maks: ${(MAX_FILE_SIZE_TABULAR / (1024*1024)).toFixed(0)} MB.`,
-      submitButtonText: "Proses File Tabular",
-      acceptAttr: ".csv,.tsv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values",
-    },
     {
       key: 'document', title: "Dokumen", icon: DocumentChartBarIcon, iconColorClass: "text-lime-600",
       description: "Unggah file PDF, DOCX, DOC, atau TXT untuk diringkas dan ditanyai.",
@@ -82,6 +76,13 @@ export const InputSection: React.FC<InputSectionProps> = ({
       description: `Ketik atau tempel teks Anda di bawah ini (maks. ${MAX_WORDS.toLocaleString('id-ID')} kata).`,
       submitButtonText: "Proses Teks",
     },
+    {
+      key: 'tabular', title: "Data Tabular", icon: DocumentDuplicateIcon, iconColorClass: "text-sky-600",
+      description: "Unggah file CSV, TSV, atau Excel Anda untuk dianalisis.",
+      fileTypesText: `.csv, .tsv, .xls, .xlsx. Maks: ${(MAX_FILE_SIZE_TABULAR / (1024*1024)).toFixed(0)} MB.`,
+      submitButtonText: "Proses File Tabular",
+      acceptAttr: ".csv,.tsv,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values",
+    },
   ];
   
   const currentConfig = modeConfigs.find(mc => mc.key === activeMode)!;
@@ -92,6 +93,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
     setWordCount(0);
     setExternalError(null);
     setShowSpecificDocWarning(false);
+    setIsDraggingOver(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = ""; 
     }
@@ -176,18 +178,13 @@ export const InputSection: React.FC<InputSectionProps> = ({
     try {
       let parsed: ParsedCsvData;
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      const fileText = await file.text(); 
-
-      if (fileExtension === 'csv') {
-        const { headers, rows } = parseCSV(fileText, ',');
-        parsed = { headers, rows, columnInfos: [], rowCount: rows.length, columnCount: headers.length, sampleRows: [], fileName: file.name };
-      } else if (fileExtension === 'tsv') {
-        const { headers, rows } = parseCSV(fileText, '\t');
+      
+      if (fileExtension === 'csv' || fileExtension === 'tsv') {
+        const fileText = await file.text(); 
+        const delimiter = fileExtension === 'csv' ? ',' : '\t';
+        const { headers, rows } = parseCSV(fileText, delimiter);
         parsed = { headers, rows, columnInfos: [], rowCount: rows.length, columnCount: headers.length, sampleRows: [], fileName: file.name };
       } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        
-        
-        
         parsed = await parseExcel(file); 
       } else {
         throw new Error("Tipe file tabular tidak didukung.");
@@ -235,15 +232,101 @@ export const InputSection: React.FC<InputSectionProps> = ({
       setIsLoading(true);
       setLoadingMessage("Memproses teks input...");
       setExternalError(null);
-      
       onDocumentOrTextProcessed(directText, "Teks Langsung");
     } 
-    
-    
   };
 
   const SelectedFileIconElement = selectedFile ? getFileIconElement(selectedFile.name) : null;
   const selectedFileIconColor = selectedFile ? getFileIconColor(selectedFile.name) : 'text-gray-500';
+
+  // Drag and Drop Handlers
+  const handleDragOver = useCallback((event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isLoading) {
+      setIsDraggingOver(true);
+    }
+  }, [isLoading]);
+
+  const handleDragEnter = useCallback((event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isLoading) {
+      setIsDraggingOver(true);
+    }
+  }, [isLoading]);
+
+  const handleDragLeave = useCallback((event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    // Check if the leave target is outside the drop zone
+    if (event.currentTarget.contains(event.relatedTarget as Node)) {
+        return;
+    }
+    setIsDraggingOver(false);
+  }, []);
+
+  const processDroppedFile = useCallback((file: File) => {
+    if (file) {
+      const maxSize = activeMode === 'tabular' ? MAX_FILE_SIZE_TABULAR : MAX_FILE_SIZE_DOCUMENT;
+      if (file.size > maxSize) {
+        setExternalError(`Ukuran file melebihi batas maksimum (${(maxSize / (1024 * 1024)).toFixed(0)} MB).`);
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      // Check file type based on acceptAttr of currentConfig
+      const acceptedTypes = currentConfig.acceptAttr?.split(',') || [];
+      const fileExtension = `.${file.name.split('.').pop()?.toLowerCase()}`;
+      const fileMimeType = file.type;
+
+      let accepted = false;
+      if (acceptedTypes.some(type => type.startsWith('.'))) { // check by extension
+          if (acceptedTypes.includes(fileExtension)) {
+              accepted = true;
+          }
+      }
+      if (!accepted && acceptedTypes.some(type => type.includes('/'))) { // check by MIME type
+          if (acceptedTypes.includes(fileMimeType)) {
+              accepted = true;
+          }
+      }
+       // Fallback for generic types like application/octet-stream for .xls if not specific enough
+      if (!accepted && (fileExtension === '.xls' || fileExtension === '.xlsx') && activeMode === 'tabular') accepted = true;
+      if (!accepted && (fileExtension === '.doc' || fileExtension === '.docx') && activeMode === 'document') accepted = true;
+
+
+      if (!accepted) {
+          setExternalError(`Tipe file tidak didukung untuk mode ini. Diterima: ${currentConfig.fileTypesText}`);
+          setSelectedFile(null);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+      }
+
+      setSelectedFile(file);
+      if (activeMode === 'document' && currentConfig.showDocWarning?.(file.name)) {
+        setShowSpecificDocWarning(true);
+      }
+    } else {
+      setSelectedFile(null);
+    }
+  }, [activeMode, currentConfig, setExternalError, setSelectedFile, setShowSpecificDocWarning]);
+
+  const handleDrop = useCallback((event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDraggingOver(false);
+    if (isLoading) return;
+
+    setExternalError(null);
+    setShowSpecificDocWarning(false);
+    const files = event.dataTransfer.files;
+
+    if (files && files.length > 0) {
+      const file = files[0];
+      processDroppedFile(file);
+    }
+  }, [isLoading, setExternalError, setShowSpecificDocWarning, processDroppedFile]);
 
 
   return (
@@ -290,11 +373,18 @@ export const InputSection: React.FC<InputSectionProps> = ({
             )}
             <label
               htmlFor="file-upload"
-              className={`mt-2 flex justify-center items-center w-full h-48 px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md cursor-pointer
-                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-400 bg-slate-50'}`}
+              className={`mt-2 flex justify-center items-center w-full h-48 px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-md cursor-pointer transition-colors duration-200
+                ${isLoading ? 'opacity-50 cursor-not-allowed bg-slate-100' 
+                  : isDraggingOver ? 'border-blue-500 bg-blue-100' 
+                  : 'hover:border-blue-400 bg-slate-50'}`}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              aria-disabled={isLoading}
             >
               <div className="space-y-1 text-center">
-                <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-slate-500" />
+                <ArrowUpTrayIcon className={`mx-auto h-12 w-12 ${isDraggingOver ? 'text-blue-600' : 'text-slate-500'}`} />
                 <div className="flex text-sm text-slate-600">
                   <span className="relative font-medium text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
                     Unggah file
