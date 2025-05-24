@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, ChangeEvent } from 'react';
 import { ParsedCsvData } from '../types';
 import { parseCSV, parseExcel, extractTextFromFile, fetchWebsiteContent } from '../services/dataAnalysisService';
@@ -278,19 +279,22 @@ export const InputSection: React.FC<InputSectionProps> = ({
   return (
     <div className="w-full">
       <div className="mb-6 border-b border-slate-200 dark:border-slate-700">
-        <nav className="-mb-px flex space-x-1 sm:space-x-2" aria-label="Tabs">
+        {/* Navigasi tab dibuat responsif */}
+        <nav className="-mb-px flex flex-wrap gap-x-1 gap-y-1 sm:gap-x-2" aria-label="Tabs">
           {modeConfigs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => { setActiveMode(tab.key); resetInputFields(); }}
-              className={`whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-sm sm:text-base transition-colors duration-150 flex items-center space-x-2
+              className={`
+                py-2 px-2 text-xs sm:py-2.5 sm:px-3 sm:text-sm 
+                border-b-2 font-medium transition-colors duration-150 flex items-center space-x-1 sm:space-x-1.5
                 ${activeMode === tab.key
                   ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:border-slate-500'
                 }`}
               aria-current={activeMode === tab.key ? 'page' : undefined}
             >
-              <tab.icon className="w-5 h-5" />
+              <tab.icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
               <span>{tab.title}</span>
             </button>
           ))}

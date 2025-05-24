@@ -1,6 +1,4 @@
 
-
-
 import React from 'react';
 // FIX: Ensure ColumnStats is correctly imported from ../types. This was indicated as a potential fix for downstream type errors.
 import { ParsedCsvData, ColumnInfo, ColumnStats } from '../types';
@@ -99,8 +97,11 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
                     <td key={col.key} className="px-4 py-3 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
                       {/* FIX: Safely access properties from info and info.stats using typed keys */}
                       {(() => {
-                        const dataIndexStr = col.dataIndex as string;
-                        let valueToRenderOrDisplay: any;
+                        const dataIndexStr = col.dataIndex as string; // dataIndex is a string from the column definition
+                        // Let TypeScript infer the type of valueToRenderOrDisplay.
+                        // Explicitly typing as 'any' can sometimes lead to obscure errors like 'not assignable to never'
+                        // if the 'any' interacts poorly with type inference in later stages.
+                        let valueToRenderOrDisplay;
 
                         // Check if dataIndexStr is a key of info.stats (and an own property)
                         if (Object.prototype.hasOwnProperty.call(info.stats, dataIndexStr)) {
@@ -117,7 +118,11 @@ export const DataOverview: React.FC<DataOverviewProps> = ({ data }) => {
                         if (col.render) {
                           // The render function expects the specific value and optionally the full record.
                           // The type of valueToRenderOrDisplay will be specific to the dataIndexStr.
-                          return col.render(valueToRenderOrDisplay, info);
+                          // FIX: Cast col.render to `any` to resolve "Argument of type 'any' is not assignable to parameter of type 'never'".
+                          // This error occurs because `col` is a union of different column definitions, making `col.render` a union
+                          // of function types. TypeScript then intersects the parameter types, resulting in `never`.
+                          // The logic for `valueToRenderOrDisplay` ensures it's appropriate for the specific `col.render`.
+                          return (col.render as any)(valueToRenderOrDisplay, info);
                         } else {
                           // Default rendering for columns without a specific render function (e.g., 'name')
                           // FIX: Ensure String conversion is safe. Given valueToRenderOrDisplay can be various types from ColumnInfo/ColumnStats,
