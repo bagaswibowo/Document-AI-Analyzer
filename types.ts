@@ -45,6 +45,7 @@ export interface ChatMessage {
   relatedUserQuestion?: string; 
   isInternetSearchResult?: boolean;
   sources?: Array<{ uri: string; title: string }>;
+  suggestedQuestions?: string[]; // Saran pertanyaan dari AI
 }
 
 

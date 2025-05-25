@@ -3,10 +3,31 @@ import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { ParsedCsvData, ColumnInfo } from '../types';
 
 const API_KEY = process.env.API_KEY;
-let aiInstance: GoogleGenAI | null = null; 
+let aiInstance: GoogleGenAI | null = null;
 let apiKeyInitializationError: string | null = null;
 
 export const INFO_NOT_FOUND_MARKER = "[INFO_NOT_FOUND_SUGGEST_WEB_SEARCH]";
+
+const SUGGESTIONS_START_MARKER = "[SUGGESTIONS_START]";
+const SUGGESTIONS_END_MARKER = "[SUGGESTIONS_END]";
+
+const SUGGESTIONS_PROMPT_BLOCK = `
+---
+Setelah teks utama jawaban Anda, sertakan blok ${SUGGESTIONS_START_MARKER}...${SUGGESTIONS_END_MARKER} yang berisi 2-4 saran pertanyaan lanjutan yang relevan dengan topik yang baru saja dibahas. Setiap saran harus dalam baris baru dan berupa TEKS BIASA tanpa nomor, poin, atau format tebal. Pastikan saran-saran tersebut singkat dan langsung ke intinya.
+Contoh:
+${SUGGESTIONS_START_MARKER}
+Apa dampak perubahan iklim terhadap pertanian?
+Bagaimana cara mengurangi jejak karbon pribadi?
+${SUGGESTIONS_END_MARKER}
+---
+`;
+
+// Fix: Export AiServiceResponse interface
+export interface AiServiceResponse {
+  mainText: string;
+  suggestedQuestions?: string[];
+  sources?: Array<{ uri: string; title: string }>; // Untuk fungsi pencarian internet
+}
 
 
 function getAiInstance(): GoogleGenAI {
@@ -27,12 +48,26 @@ function getAiInstance(): GoogleGenAI {
   } catch (e) {
     apiKeyInitializationError = `Kesalahan saat inisialisasi SDK AI: ${e instanceof Error ? e.message : String(e)}. Pastikan API_KEY adalah string yang valid.`;
     console.error(apiKeyInitializationError);
-    aiInstance = null; 
+    aiInstance = null;
     throw new Error(apiKeyInitializationError);
   }
 }
 
 const modelName = 'gemini-2.5-flash-preview-04-17';
+
+const parseAiResponseText = (responseText: string): AiServiceResponse => {
+  const startIdx = responseText.indexOf(SUGGESTIONS_START_MARKER);
+  const endIdx = responseText.indexOf(SUGGESTIONS_END_MARKER);
+
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    const suggestionsBlock = responseText.substring(startIdx + SUGGESTIONS_START_MARKER.length, endIdx).trim();
+    const suggestedQuestions = suggestionsBlock.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    const mainText = responseText.substring(0, startIdx).trim();
+    return { mainText, suggestedQuestions: suggestedQuestions.length > 0 ? suggestedQuestions : undefined };
+  }
+  return { mainText: responseText.trim(), suggestedQuestions: undefined };
+};
+
 
 function formatDataSummaryForPrompt(data: ParsedCsvData): string {
   let summary = `Dataset: ${data.fileName}\n`;
@@ -55,7 +90,7 @@ function formatDataSummaryForPrompt(data: ParsedCsvData): string {
   if (data.sampleRows.length > 0) {
     summary += "\nData Sampel (beberapa baris pertama):\n";
     summary += data.headers.join(', ') + '\n';
-    data.sampleRows.slice(0,3).forEach(row => { 
+    data.sampleRows.slice(0,3).forEach(row => {
         summary += data.headers.map(h => String(row[h] ?? 'N/A')).join(', ') + '\n';
     });
   }
@@ -64,7 +99,7 @@ function formatDataSummaryForPrompt(data: ParsedCsvData): string {
 
 function enhanceErrorMessage(error: unknown): string {
     let baseMessage = `Permintaan API AI gagal: ${error instanceof Error ? error.message : String(error)}`;
-    const errorMessageString = String(error).toLowerCase(); 
+    const errorMessageString = String(error).toLowerCase();
     if (errorMessageString.includes("permission_denied") || errorMessageString.includes("403")) {
         baseMessage += "\n\nSaran: Ini mungkin karena API Key yang digunakan tidak memiliki izin yang diperlukan untuk layanan AI atau model yang diminta. Silakan periksa konfigurasi API Key Anda di Google Cloud Console (pastikan Generative Language API atau Vertex AI API diaktifkan dan kunci memiliki hak akses yang benar).";
     } else if (errorMessageString.includes("api key not valid") || errorMessageString.includes("api_key_not_valid")) {
@@ -82,7 +117,7 @@ function enhanceErrorMessage(error: unknown): string {
 export interface CalculationInterpretation {
   operation: "SUM" | "AVERAGE" | "MEDIAN" | "MODE" | "MIN" | "MAX" | "COUNT" | "COUNTA" | "COUNTUNIQUE" | "STDEV" | "VAR" | "UNKNOWN";
   columnName: string | null;
-  errorMessage?: string; 
+  errorMessage?: string;
 }
 
 
@@ -101,7 +136,7 @@ Format output HARUS berupa objek JSON tunggal dengan struktur berikut:
 {
   "operation": "NAMA_OPERASI_VALID_ATAU_UNKNOWN",
   "columnName": "NAMA_KOLOM_TARGET_ATAU_NULL_JIKA_TIDAK_ADA",
-  "errorMessage": "PESAN_ERROR_JIKA_ADA_ATAU_KOSONG" 
+  "errorMessage": "PESAN_ERROR_JIKA_ADA_ATAU_KOSONG"
 }
 
 Pesan error bisa berupa:
@@ -123,7 +158,7 @@ Objek JSON Hasil Interpretasi:
     const response: GenerateContentResponse = await currentAi.models.generateContent({
       model: modelName,
       contents: prompt,
-      config: { responseMimeType: "application/json" } 
+      config: { responseMimeType: "application/json" }
     });
 
     let jsonStr = response.text.trim();
@@ -132,7 +167,7 @@ Objek JSON Hasil Interpretasi:
     if (match && match[2]) {
       jsonStr = match[2].trim();
     }
-    
+
     const parsed = JSON.parse(jsonStr) as CalculationInterpretation;
 
     if (!validOperations.includes(parsed.operation as any) && parsed.operation !== "UNKNOWN") {
@@ -158,7 +193,7 @@ Objek JSON Hasil Interpretasi:
 };
 
 
-export const generateInsights = async (data: ParsedCsvData): Promise<string> => {
+export const generateInsights = async (data: ParsedCsvData): Promise<AiServiceResponse> => {
   const currentAi = getAiInstance();
   const dataSummary = formatDataSummaryForPrompt(data);
   const prompt = `
@@ -172,6 +207,7 @@ Ringkasan Dataset:
 ${dataSummary}
 
 Wawasan (dalam bahasa yang sederhana):
+${SUGGESTIONS_PROMPT_BLOCK}
 `;
 
   try {
@@ -179,7 +215,7 @@ Wawasan (dalam bahasa yang sederhana):
       model: modelName,
       contents: prompt,
     });
-    return response.text;
+    return parseAiResponseText(response.text);
   } catch (error) {
     console.error("Kesalahan API AI (generateInsights):", error);
     throw new Error(enhanceErrorMessage(error));
@@ -187,15 +223,15 @@ Wawasan (dalam bahasa yang sederhana):
 };
 
 export const answerQuestion = async (
-    dataSummary: string, 
+    dataSummary: string,
     question: string,
-    calculationResultContext?: string 
-  ): Promise<string> => {
+    calculationResultContext?: string
+  ): Promise<AiServiceResponse> => {
   const currentAi = getAiInstance();
-  
+
   const prompt = `
 Anda adalah asisten AI yang sangat mahir dalam menganalisis data tabular dan menafsirkan permintaan perhitungan mirip fungsi spreadsheet.
-Gunakan ringkasan data yang disediakan untuk menjawab pertanyaan pengguna secara akurat.
+Gunakan HANYA ringkasan data yang disediakan untuk menjawab pertanyaan pengguna secara akurat. JANGAN gunakan pengetahuan eksternal atau internet untuk pertanyaan tentang data.
 
 ${calculationResultContext ? `KONTEKS TAMBAHAN: Sistem telah melakukan perhitungan atau interpretasi berdasarkan pertanyaan pengguna. ${calculationResultContext} Tugas Anda adalah menyajikan hasil ini dengan jelas dalam jawaban Anda, sambil tetap merujuk pada ringkasan data jika perlu untuk konteks tambahan.\n` : ""}
 
@@ -203,7 +239,7 @@ Kemampuan Anda Meliputi:
 1.  Menjawab pertanyaan umum tentang data berdasarkan ringkasan yang diberikan.
 2.  Untuk permintaan perhitungan statistik dasar (SUM, AVERAGE, MEDIAN, MODE, MIN, MAX, COUNT, COUNTA, COUNTUNIQUE, STDEV, VAR):
     *   Jika KONTEKS TAMBAHAN menyediakan hasil perhitungan, GUNAKAN HASIL TERSEBUT sebagai jawaban utama dan sajikan dengan jelas.
-    *   Jika tidak ada KONTEKS TAMBAHAN, rujuk pada statistik yang sudah ada dalam ringkasan data jika pertanyaan dapat dijawab darinya. Misalnya, "Rata-rata untuk kolom 'Usia' adalah 25.5 tahun, seperti yang tertera dalam statistik kolom."
+    *   Jika tidak ada KONTEKS TAMBAHAN, rujuk pada statistik yang sudah ada dalam ringkasan data jika pertanyaan dapat dijawab darinya.
     *   Jika statistik tidak ada di ringkasan dan tidak ada hasil perhitungan yang diberikan, jelaskan bagaimana cara menghitungnya secara konseptual.
 3.  Memahami dan menjelaskan secara KONSEPTUAL fungsi spreadsheet yang lebih kompleks. Anda BELUM dapat MELAKUKAN perhitungan ini, tetapi Anda harus bisa MENJELASKAN CARA KERJANYA.
 
@@ -215,12 +251,13 @@ Instruksi Penting:
     1.  Jelaskan dengan sopan bahwa sistem tidak dapat melakukan operasi kompleks tersebut secara langsung.
     2.  Jelaskan secara konseptual bagaimana permintaan tersebut akan ditangani.
     3.  Tawarkan untuk menjawab pertanyaan terkait yang lebih sederhana.
-*   Jika pertanyaan tidak dapat dijawab dari data yang diberikan atau perhitungan tidak mungkin dilakukan, dan itu bukan pertanyaan umum yang bisa dijawab dengan pengetahuan umum (misalnya, definisi suatu istilah), awali jawaban Anda dengan penanda khusus ${INFO_NOT_FOUND_MARKER} lalu jelaskan mengapa secara sopan dan sarankan pencarian internet jika relevan.
+*   Jika pertanyaan tidak dapat dijawab dari data yang diberikan, atau perhitungan tidak mungkin dilakukan (misalnya kolom tidak ada, data tidak memadai), DAN pertanyaan tersebut adalah spesifik tentang data yang diberikan:
+    Awali jawaban Anda dengan penanda khusus ${INFO_NOT_FOUND_MARKER}. Kemudian, nyatakan bahwa informasi tersebut tidak dapat ditemukan atau operasi tidak dapat dilakukan pada konteks data yang diberikan. Sarankan pengguna untuk mencoba menggunakan fitur "Cari di Internet" untuk pertanyaan tersebut jika mereka merasa itu mungkin pertanyaan umum.
 *   Sebutkan nama fungsi spreadsheet yang relevan jika pengguna menggunakan istilah umum (misalnya, "total" berarti SUM).
 *   Lakukan interpretasi perhitungan hanya pada kolom yang relevan. Jika tidak relevan, jelaskan mengapa.
 *   Jika pertanyaan bersifat ambigu, minta klarifikasi.
 *   Jawab dengan ringkas, jelas, dan langsung ke intinya. Gunakan poin-poin jika perlu.
-*   Anda TIDAK dapat mengeksekusi query SQL, membuat visualisasi, atau memodifikasi data. Fokus pada interpretasi, penjelasan, dan penyajian hasil yang diberikan.
+*   Anda TIDAK dapat mengeksekusi query SQL, membuat visualisasi, atau memodifikasi data. Fokus pada interpretasi, penjelasan, dan penyajian hasil yang diberikan berdasarkan data yang ada.
 
 Ringkasan Dataset (gunakan ini sebagai dasar pengetahuan Anda tentang data):
 ---
@@ -230,6 +267,7 @@ ${dataSummary}
 Pertanyaan Pengguna: "${question}"
 
 Jawaban (berdasarkan ringkasan, pertanyaan, dan KONTEKS TAMBAHAN jika ada):
+${SUGGESTIONS_PROMPT_BLOCK}
 `;
 
   try {
@@ -237,14 +275,14 @@ Jawaban (berdasarkan ringkasan, pertanyaan, dan KONTEKS TAMBAHAN jika ada):
       model: modelName,
       contents: prompt,
     });
-    return response.text;
+    return parseAiResponseText(response.text);
   } catch (error) {
     console.error("Kesalahan API AI (answerQuestion):", error);
     throw new Error(enhanceErrorMessage(error));
   }
 };
 
-export const summarizeContent = async (textContent: string): Promise<string> => {
+export const summarizeContent = async (textContent: string): Promise<AiServiceResponse> => {
   const currentAi = getAiInstance();
   const prompt = `
 Ringkas konten berikut dalam 3-5 poin utama atau dalam satu paragraf singkat (sekitar 100-150 kata).
@@ -255,25 +293,27 @@ Konten:
 ${textContent.substring(0, 30000)} ${textContent.length > 30000 ? "... (konten dipotong)" : ""}
 ---
 Ringkasan (dalam bahasa sederhana):
+${SUGGESTIONS_PROMPT_BLOCK}
 `;
   try {
     const response: GenerateContentResponse = await currentAi.models.generateContent({
       model: modelName,
       contents: prompt,
     });
-    return response.text;
+    return parseAiResponseText(response.text);
   } catch (error) {
     console.error("Kesalahan API AI (summarizeContent):", error);
     throw new Error(enhanceErrorMessage(error));
   }
 };
 
-export const answerQuestionFromContent = async (textContent: string, question: string): Promise<string> => {
+export const answerQuestionFromContent = async (textContent: string, question: string): Promise<AiServiceResponse> => {
   const currentAi = getAiInstance();
   const prompt = `
 Anda adalah asisten AI yang menjawab pertanyaan berdasarkan konten yang disediakan.
-Gunakan hanya informasi dari konten di bawah ini untuk menjawab pertanyaan.
-Jika jawaban tidak ditemukan dalam konten, awali jawaban Anda dengan penanda khusus ${INFO_NOT_FOUND_MARKER} lalu nyatakan bahwa informasi tersebut tidak tersedia dalam teks yang diberikan dan bahwa pengguna dapat mencoba mencarinya di internet. Jangan gunakan pengetahuan eksternal.
+Gunakan HANYA informasi dari konten di bawah ini untuk menjawab pertanyaan. JANGAN gunakan pengetahuan eksternal atau internet.
+Jika jawaban tidak ditemukan dalam konten yang disediakan:
+    Awali jawaban Anda dengan penanda khusus ${INFO_NOT_FOUND_MARKER}. Setelah penanda, nyatakan bahwa informasi tersebut tidak tersedia dalam teks yang diberikan. Kemudian, sarankan pengguna bahwa mereka bisa mencoba menggunakan fitur "Cari di Internet" untuk pertanyaan tersebut jika mereka merasa itu pertanyaan umum.
 Jawab dengan bahasa yang sederhana dan mudah dipahami.
 
 Konten:
@@ -283,21 +323,22 @@ ${textContent.substring(0, 30000)} ${textContent.length > 30000 ? "... (konten d
 
 Pertanyaan: "${question}"
 
-Jawaban (berdasarkan konten yang disediakan, dalam bahasa sederhana):
+Jawaban (berdasarkan HANYA konten yang disediakan, dalam bahasa sederhana):
+${SUGGESTIONS_PROMPT_BLOCK}
 `;
   try {
     const response: GenerateContentResponse = await currentAi.models.generateContent({
       model: modelName,
       contents: prompt,
     });
-    return response.text;
+    return parseAiResponseText(response.text);
   } catch (error) {
     console.error("Kesalahan API AI (answerQuestionFromContent):", error);
     throw new Error(enhanceErrorMessage(error));
   }
 };
 
-export const simplifyText = async (textToSimplify: string): Promise<string> => {
+export const simplifyText = async (textToSimplify: string): Promise<AiServiceResponse> => {
   const currentAi = getAiInstance();
   const prompt = `
 Tolong sederhanakan teks berikut agar lebih mudah dipahami oleh audiens umum.
@@ -311,29 +352,62 @@ ${textToSimplify.substring(0, 30000)} ${textToSimplify.length > 30000 ? "... (te
 ---
 
 Versi yang Disederhanakan:
+${SUGGESTIONS_PROMPT_BLOCK}
 `;
   try {
     const response: GenerateContentResponse = await currentAi.models.generateContent({
       model: modelName,
       contents: prompt,
     });
-    return response.text;
+    return parseAiResponseText(response.text);
   } catch (error) {
     console.error("Kesalahan API AI (simplifyText):", error);
     throw new Error(enhanceErrorMessage(error));
   }
 };
 
-export const answerQuestionWithInternetSearch = async (question: string): Promise<{ text: string; sources?: Array<{ uri: string; title: string }> }> => {
+// For structured "cari..." requests
+export const answerQuestionWithInternetSearch = async (question: string): Promise<AiServiceResponse> => {
   const currentAi = getAiInstance();
   const prompt = `
-Jawab pertanyaan pengguna berikut berdasarkan informasi yang Anda temukan dari internet menggunakan Google Search.
-Sajikan jawaban yang ringkas, jelas, dan relevan dalam bahasa Indonesia.
-Jika Anda menemukan beberapa sumber, prioritaskan informasi yang paling komprehensif dan kredibel.
+Anda adalah asisten AI peneliti yang canggih dengan akses ke pencarian internet.
+Tugas Anda adalah menjawab pertanyaan pengguna dengan memberikan daftar tautan relevan beserta ringkasannya. Permintaan ini adalah untuk pencarian terstruktur.
 
 Pertanyaan Pengguna: "${question}"
 
-Jawaban (dalam bahasa Indonesia):
+Ikuti langkah-langkah berikut dengan SANGAT TELITI:
+
+1.  **Pencarian Internet**: Lakukan pencarian Google Search yang komprehensif berdasarkan pertanyaan pengguna.
+2.  **Seleksi Sumber**: Identifikasi 3 hingga 5 halaman web yang paling relevan, **terpercaya, dan dapat diakses** untuk menjawab pertanyaan pengguna. Prioritaskan sumber resmi, berita terkemuka, artikel ilmiah, atau dokumentasi yang mendalam. Usahakan untuk memilih sumber yang terlihat aktif dikelola dan kontennya tampak stabil serta dapat diakses publik. Hindari sumber yang terlihat usang, halaman direktori, atau situs dengan kualitas rendah.
+3.  **Ekstraksi Informasi & Ringkasan**: Untuk setiap halaman web yang Anda pilih:
+    *   Dapatkan judul halaman yang akurat.
+    *   Sediakan **hanya placeholder judul** untuk tautan. Klien akan menggantinya dengan tautan Markdown yang benar menggunakan URL dari metadata. Format placeholder: \`[AI akan menuliskan judul halaman di sini sebagai placeholder untuk diganti klien]\`.
+    *   Buat **ringkasan yang lebih detail (sekitar 2-4 kalimat atau satu paragraf pendek)** yang menjelaskan poin-poin kunci dari halaman tersebut dan bagaimana halaman itu relevan dengan pertanyaan pengguna. Ringkasan ini HARUS FOKUS pada aspek yang menjawab pertanyaan dan memberikan pemahaman yang lebih baik tentang kontennya. **Sorot bagian penting dalam ringkasan dengan menggunakan Markdown bold (\`**teks tebal**\`)**.
+
+**Format Output WAJIB (gunakan Markdown):**
+
+Tentu, berikut adalah beberapa tautan relevan yang saya temukan beserta ringkasannya:
+
+1.  **[Judul Halaman Web 1 yang Ditemukan AI]**
+    *   **Tautan Asli:** [Placeholder Judul oleh AI untuk Sumber 1]
+    *   **Ringkasan Detail:** [Ringkasan yang lebih detail (sekitar 2-4 kalimat atau satu paragraf pendek) untuk Halaman Web 1 yang dibuat AI, dengan **sorotan** pada poin-poin kunci yang relevan.]
+
+2.  **[Judul Halaman Web 2 yang Ditemukan AI]**
+    *   **Tautan Asli:** [Placeholder Judul oleh AI untuk Sumber 2]
+    *   **Ringkasan Detail:** [Ringkasan yang lebih detail (sekitar 2-4 kalimat atau satu paragraf pendek) untuk Halaman Web 2 yang dibuat AI, dengan **sorotan** pada poin-poin kunci yang relevan.]
+
+(Lanjutkan untuk sumber ke-3, ke-4, dan ke-5 jika ada, dengan format yang sama. Label "**Tautan Asli:**" dan "**Ringkasan Detail:**" harus selalu tebal.)
+
+---
+**Meta**: Kata kunci pencarian yang mungkin digunakan: "[inferensi 3-5 kata kunci utama dari pertanyaan pengguna yang paling relevan untuk pencarian yang dibuat AI]"
+
+**PENTING SEKALI**:
+*   Label "**Tautan Asli:**" dan "**Ringkasan Detail:**" HARUS SELALU tebal.
+*   Bagian setelah "**Tautan Asli:**" HARUS HANYA berupa placeholder judul dalam kurung siku, misalnya \`[AI Generated Title for This Source]\`. JANGAN sertakan URL di sini.
+*   Ringkasan harus benar-benar **detail dan informatif** namun tetap ringkas, dengan bagian penting **disorot**.
+*   Jangan menambahkan teks pembuka atau penutup di luar format yang ditentukan di atas.
+*   Pilih sumber yang kredibel dan dapat diandalkan, dan usahakan untuk menghindari halaman yang kemungkinan besar tidak dapat diakses atau kontennya sudah tidak relevan.
+${SUGGESTIONS_PROMPT_BLOCK.replace("Setiap saran harus dalam baris baru dan berupa TEKS BIASA tanpa nomor, poin, atau format tebal.", "Setiap saran harus dalam baris baru dan berupa TEKS BIASA (tanpa nomor, poin, atau format tebal).")}
 `;
   try {
     const response: GenerateContentResponse = await currentAi.models.generateContent({
@@ -344,7 +418,68 @@ Jawaban (dalam bahasa Indonesia):
       },
     });
 
-    let answerText = response.text;
+    const parsedResponse = parseAiResponseText(response.text);
+    let sources: Array<{ uri: string; title:string }> | undefined = undefined;
+
+    const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+    if (groundingMetadata?.groundingChunks && groundingMetadata.groundingChunks.length > 0) {
+      const uniqueSources = new Map<string, string>();
+      groundingMetadata.groundingChunks.forEach(chunk => {
+        if (chunk.web && chunk.web.uri && chunk.web.title) {
+          if (!uniqueSources.has(chunk.web.uri)) {
+            uniqueSources.set(chunk.web.uri, chunk.web.title.trim());
+          }
+        }
+      });
+      if (uniqueSources.size > 0) {
+        sources = Array.from(uniqueSources.entries()).map(([uri, title]) => ({ uri, title }));
+      }
+    }
+    return { ...parsedResponse, sources };
+  } catch (error) {
+    console.error("Kesalahan API AI (answerQuestionWithInternetSearch):", error);
+    throw new Error(enhanceErrorMessage(error));
+  }
+};
+
+// For conversational general knowledge questions using internet search
+export const getConversationalAnswerWithInternetSearch = async (question: string): Promise<AiServiceResponse> => {
+  const currentAi = getAiInstance();
+  const prompt = `
+Anda adalah asisten AI yang sangat membantu, informatif, dan canggih dengan akses ke pencarian internet.
+Tugas Anda adalah menjawab pertanyaan pengguna secara detail, alami, dan dalam gaya percakapan yang menarik.
+
+PENTING: Ketika Anda menggunakan informasi spesifik dari sebuah sumber yang ditemukan melalui pencarian internet, Anda **HARUS** berusaha menyematkan referensi ke sumber tersebut secara naratif dan langsung di dalam kalimat jawaban Anda jika memungkinkan. Gunakan format Markdown untuk tautan: \`[Teks Tautan yang Relevan](URL_ASLI_VALID)\`. Teks tautan bisa berupa nama sumber, judul artikel, atau frasa deskriptif. Usahakan agar URL yang Anda gunakan adalah URL asli yang valid dan langsung ke konten, bukan URL redirect.
+
+Contoh bagaimana cara menyematkan referensi naratif dengan tautan Markdown:
+*   "Pemanasan global disebabkan oleh peningkatan emisi gas rumah kaca, seperti yang dijelaskan oleh [NASA Climate Change](https://climate.nasa.gov/)."
+*   "Menurut sebuah studi terbaru yang diterbitkan di [Nature](URL_JURNAL_NATURE_RELEVAN), para peneliti menemukan bahwa..."
+*   "Anda bisa menemukan informasi lebih lanjut mengenai cara kerja fotosintesis di [Wikipedia - Fotosintesis](URL_HALAMAN_WIKIPEDIA_FOTOSINTESIS)."
+
+Instruksi Tambahan:
+*   **JAWABAN ANDA TIDAK BOLEH menggunakan format daftar kaku** seperti "Tautan Asli:", "Ringkasan Detail:", atau daftar tautan bernomor di akhir. Semua referensi harus disematkan secara kontekstual dalam kalimat menggunakan tautan Markdown.
+*   Sajikan jawaban seolah-olah Anda sedang berbicara langsung dan membantu pengguna memahami topik.
+*   Jika Anda merangkum informasi dari beberapa sumber, Anda bisa menyertakan beberapa tautan Markdown inline jika relevan.
+*   Usahakan jawaban tidak terlalu panjang, namun tetap komprehensif, akurat, dan menjawab inti pertanyaan pengguna.
+*   Fokus pada penyajian fakta dan informasi yang Anda temukan. Hindari opini pribadi kecuali diminta.
+*   Jika sebuah URL sangat panjang atau kompleks, Anda bisa menggunakan judul artikel atau nama domain sebagai teks tautan.
+
+Pertanyaan Pengguna: "${question}"
+
+Jawaban Percakapan (dengan referensi naratif dan tautan Markdown yang disematkan secara alami dalam kalimat):
+${SUGGESTIONS_PROMPT_BLOCK.replace("Setiap saran harus dalam baris baru dan berupa TEKS BIASA tanpa nomor, poin, atau format tebal.", "Setiap saran harus dalam baris baru dan berupa TEKS BIASA (tanpa nomor, poin, atau format tebal).")}
+`;
+
+  try {
+    const response: GenerateContentResponse = await currentAi.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const parsedResponse = parseAiResponseText(response.text);
     let sources: Array<{ uri: string; title: string }> | undefined = undefined;
 
     const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
@@ -361,15 +496,15 @@ Jawaban (dalam bahasa Indonesia):
         sources = Array.from(uniqueSources.entries()).map(([uri, title]) => ({ uri, title }));
       }
     }
-    return { text: answerText, sources };
+    return { ...parsedResponse, sources };
   } catch (error) {
-    console.error("Kesalahan API AI (answerQuestionWithInternetSearch):", error);
+    console.error("Kesalahan API AI (getConversationalAnswerWithInternetSearch):", error);
     throw new Error(enhanceErrorMessage(error));
   }
 };
 
 
-export const evaluateDocumentWithReferences = async (textContent: string): Promise<string> => {
+export const evaluateDocumentWithReferences = async (textContent: string): Promise<AiServiceResponse> => {
   const currentAi = getAiInstance();
   const prompt = `
 Anda adalah seorang editor dan peneliti ahli.
@@ -388,23 +523,25 @@ Instruksi:
 Format output Anda dalam Markdown.
 Jika tidak ada referensi yang relevan ditemukan oleh pencarian, sebutkan itu dengan jelas.
 Pastikan setiap URL yang disertakan adalah URL lengkap yang valid.
+${SUGGESTIONS_PROMPT_BLOCK.replace("Setiap saran harus dalam baris baru dan berupa TEKS BIASA tanpa nomor, poin, atau format tebal.", "Setiap saran harus dalam baris baru dan berupa TEKS BIASA (tanpa nomor, poin, atau format tebal).")}
 `;
 
   try {
     const response: GenerateContentResponse = await currentAi.models.generateContent({
-      model: modelName, 
+      model: modelName,
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }], 
+        tools: [{ googleSearch: {} }],
       },
     });
 
-    let evaluationText = response.text;
+    const parsedResponse = parseAiResponseText(response.text);
+    let sources: Array<{ uri: string; title: string }> | undefined = undefined;
 
     const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
     if (groundingMetadata?.groundingChunks && groundingMetadata.groundingChunks.length > 0) {
       let sourcesMarkdown = "\n\n---\n### Sumber Referensi dari Internet:\n";
-      const uniqueSources = new Map<string, string>(); 
+      const uniqueSources = new Map<string, string>();
 
       groundingMetadata.groundingChunks.forEach(chunk => {
         if (chunk.web && chunk.web.uri && chunk.web.title) {
@@ -413,20 +550,23 @@ Pastikan setiap URL yang disertakan adalah URL lengkap yang valid.
           }
         }
       });
-      
+
       if (uniqueSources.size > 0) {
         uniqueSources.forEach((title, uri) => {
-            sourcesMarkdown += `- [${title.replace(/\[|\]/g, '')}](${uri})\n`; 
+            sourcesMarkdown += `- [${title.replace(/\[|\]/g, '')}](${uri})\n`;
         });
+        sources = Array.from(uniqueSources.entries()).map(([uri, title]) => ({ uri, title }));
       } else {
         sourcesMarkdown += "\nTidak ada sumber referensi spesifik yang ditemukan oleh pencarian Google untuk mendukung evaluasi ini.\n";
       }
-      evaluationText += sourcesMarkdown;
+      // Append sources markdown to the main text, or handle it separately if needed
+      parsedResponse.mainText += sourcesMarkdown;
+
     } else {
-      evaluationText += "\n\n---\n### Sumber Referensi dari Internet:\n\nTidak ada sumber referensi yang ditemukan oleh pencarian Google untuk mendukung evaluasi ini.\n";
+      parsedResponse.mainText += "\n\n---\n### Sumber Referensi dari Internet:\n\nTidak ada sumber referensi yang ditemukan oleh pencarian Google untuk mendukung evaluasi ini.\n";
     }
 
-    return evaluationText;
+    return { ...parsedResponse, sources };
   } catch (error) {
     console.error("Kesalahan API AI (evaluateDocumentWithReferences):", error);
     throw new Error(enhanceErrorMessage(error));

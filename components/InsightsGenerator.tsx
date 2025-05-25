@@ -3,14 +3,17 @@ import React, { useState } from 'react';
 
 import ReactMarkdown from 'react-markdown';
 import { LightBulbIcon, BeakerIcon } from '@heroicons/react/24/outline'; 
+import { ChatMessage } from '../types'; // Assuming ChatMessage is relevant for suggestions
 
 interface InsightsGeneratorProps {
-  onGenerateInsights: () => Promise<string>;
+  onGenerateInsights: () => Promise<{ mainText: string; suggestedQuestions?: string[] }>;
   isLoading: boolean;
+  onSuggestedQuestionClick?: (question: string) => void; // Callback for suggestion click
 }
 
-export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerateInsights, isLoading }) => {
-  const [insights, setInsights] = useState<string | null>(null);
+export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerateInsights, isLoading, onSuggestedQuestionClick }) => {
+  const [insightsMainText, setInsightsMainText] = useState<string | null>(null);
+  const [insightsSuggestions, setInsightsSuggestions] = useState<string[] | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   
 
@@ -22,7 +25,7 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
       ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-2 space-y-1 text-slate-700" {...props} />,
       ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-2 space-y-1 text-slate-700" {...props} />,
       li: ({node, ...props}: any) => <li className="text-slate-700" {...props} />,
-      strong: ({node, ...props}: any) => <strong className="font-semibold text-green-800 bg-green-100 px-1 py-0.5 rounded-sm" {...props} />,
+      strong: ({node, ...props}: any) => <strong className="font-semibold text-current" {...props} />,
       em: ({node, ...props}: any) => <em className="italic text-slate-600" {...props} />,
       a: ({node, ...props}: any) => <a className="text-blue-600 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer" {...props} />,
       code: ({node, inline, className, children, ...props}: any) => {
@@ -43,13 +46,15 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
 
   const handleFetchInsights = async () => {
     setError(null);
-    setInsights(null);
+    setInsightsMainText(null);
+    setInsightsSuggestions(undefined);
     try {
       const result = await onGenerateInsights();
-      if (result.startsWith("Error:") || result.startsWith("Gagal")) {
-          setError(result);
+      if (result.mainText.startsWith("Error:") || result.mainText.startsWith("Gagal")) {
+          setError(result.mainText);
       } else {
-          setInsights(result);
+          setInsightsMainText(result.mainText);
+          setInsightsSuggestions(result.suggestedQuestions);
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -95,14 +100,30 @@ export const InsightsGenerator: React.FC<InsightsGeneratorProps> = ({ onGenerate
         </div>
       )}
       
-      {insights && !isLoading && (
+      {insightsMainText && !isLoading && (
         <div className="prose prose-sm sm:prose-base lg:prose-lg max-w-none p-4 border border-slate-200 rounded-lg bg-slate-50">
           <ReactMarkdown components={MarkdownComponents}>
-            {insights}
+            {insightsMainText}
           </ReactMarkdown>
         </div>
       )}
-      {!insights && !isLoading && !error && (
+      {insightsSuggestions && insightsSuggestions.length > 0 && onSuggestedQuestionClick && !isLoading && (
+          <div className="mt-4 p-3 bg-slate-100 rounded-md">
+              <h4 className="text-sm font-semibold text-slate-700 mb-2">Saran Pertanyaan Lanjutan:</h4>
+              <div className="flex flex-wrap gap-2">
+                  {insightsSuggestions.map((q, i) => (
+                      <button
+                          key={`insight-sugg-${i}`}
+                          onClick={() => onSuggestedQuestionClick(q)}
+                          className="px-2.5 py-1.5 text-xs bg-sky-100 hover:bg-sky-200 text-sky-700 rounded-md transition-colors"
+                      >
+                          {q}
+                      </button>
+                  ))}
+              </div>
+          </div>
+      )}
+      {!insightsMainText && !isLoading && !error && (
          <div className="p-8 text-center bg-slate-50 rounded-lg">
           <LightBulbIcon className="w-16 h-16 text-amber-400 opacity-60 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-700 mb-2">Klik tombol di atas untuk menghasilkan wawasan.</h3>

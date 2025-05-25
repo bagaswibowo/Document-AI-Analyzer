@@ -16,16 +16,17 @@ import { extractTextFromFile } from '../services/dataAnalysisService';
 
 interface DocumentEvaluatorProps {
   originalContent: string | null; 
-  onEvaluate: () => void;
+  onEvaluate: () => Promise<{ mainText: string; suggestedQuestions?: string[], sources?: Array<{ uri: string; title: string }> }>;
   isLoading: boolean; 
   evaluationResult: string | null;
+  evaluationSuggestions?: string[];
+  evaluationSources?: Array<{ uri: string; title: string }>;
   sourceIdentifier?: string;
-  
-  
   onDocumentUploadedAndProcessed: (text: string, sourceName: string, navigateToEvaluation?: boolean) => void;
   setAppIsLoading: (loading: boolean) => void;
   setAppLoadingMessage: (message: string) => void;
   setAppError: (error: string | null) => void;
+  onSuggestedQuestionClick?: (question: string) => void;
 }
 
 const MAX_FILE_SIZE_DOCUMENT = 25 * 1024 * 1024; 
@@ -35,11 +36,14 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
   onEvaluate,
   isLoading,
   evaluationResult,
+  evaluationSuggestions,
+  // evaluationSources, // Sources are now part of evaluationResult text from AI service
   sourceIdentifier,
   onDocumentUploadedAndProcessed,
   setAppIsLoading,
   setAppLoadingMessage,
   setAppError,
+  onSuggestedQuestionClick,
 }) => {
   const [internalSelectedFile, setInternalSelectedFile] = useState<File | null>(null);
   const [internalFileError, setInternalFileError] = useState<string | null>(null);
@@ -56,7 +60,7 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
       ul: ({node, ...props}: any) => <ul className="list-disc pl-5 my-2 space-y-1 text-slate-700" {...props} />,
       ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-2 space-y-1 text-slate-700" {...props} />,
       li: ({node, ...props}: any) => <li className="text-slate-700" {...props} />,
-      strong: ({node, ...props}: any) => <strong className="font-semibold text-slate-800" {...props} />,
+      strong: ({node, ...props}: any) => <strong className="font-semibold text-current" {...props} />,
       em: ({node, ...props}: any) => <em className="italic text-slate-600" {...props} />,
       a: ({node, ...props}: any) => <a className="text-blue-600 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer" {...props} />,
       code: ({node, inline, className, children, ...props}: any) => {
@@ -201,7 +205,7 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
               <input id="internal-file-upload" name="internal-file-upload" type="file" className="sr-only" ref={internalFileInputRef} onChange={handleInternalFileChange} accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" disabled={isProcessingInternalFile} />
               <p className="pl-1">atau seret dan lepas</p>
             </div>
-            <p className="text-xs text-slate-600">.pdf, .docx, .doc, .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)} MB.</p>
+            <p className="text-xs text-slate-600">.pdf, .docx, .doc, .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024 * 1024)).toFixed(0)} MB.</p>
           </div>
         </label>
 
@@ -311,6 +315,22 @@ export const DocumentEvaluator: React.FC<DocumentEvaluatorProps> = ({
             </ReactMarkdown>
           </div>
         </div>
+      )}
+      {evaluationSuggestions && evaluationSuggestions.length > 0 && onSuggestedQuestionClick && !isLoading && (
+          <div className="mt-4 p-3 bg-slate-100 rounded-md">
+              <h4 className="text-sm font-semibold text-slate-700 mb-2">Saran Pertanyaan Lanjutan (Evaluasi):</h4>
+              <div className="flex flex-wrap gap-2">
+                  {evaluationSuggestions.map((q, i) => (
+                      <button
+                          key={`eval-sugg-${i}`}
+                          onClick={() => onSuggestedQuestionClick(q)}
+                          className="px-2.5 py-1.5 text-xs bg-sky-100 hover:bg-sky-200 text-sky-700 rounded-md transition-colors"
+                      >
+                          {q}
+                      </button>
+                  ))}
+              </div>
+          </div>
       )}
 
       {!evaluationResult && !isLoading && originalContent && (

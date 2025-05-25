@@ -1,33 +1,39 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from '../types';
 import type { AppMode } from '../App';
-import { INFO_NOT_FOUND_MARKER, simplifyText, answerQuestionWithInternetSearch } from '../services/aiService';
+// Fix: Import AiServiceResponse for correct prop typing
+import { INFO_NOT_FOUND_MARKER, simplifyText, answerQuestionWithInternetSearch, getConversationalAnswerWithInternetSearch, AiServiceResponse } from '../services/aiService';
 
 
 import ReactMarkdown from 'react-markdown';
-import { 
+import {
   PaperAirplaneIcon, UserIcon, SparklesIcon, ChatBubbleLeftEllipsisIcon, DocumentTextIcon,
-  LanguageIcon, MagnifyingGlassIcon, ChevronDownIcon, LinkIcon
+  LanguageIcon, MagnifyingGlassIcon, LinkIcon, ServerStackIcon, GlobeAltIcon
 } from '@heroicons/react/24/solid';
 
 interface QAChatProps {
-  onQuery: (question: string) => Promise<string>;
-  isLoading: boolean; // General loading for initial query
+  // Fix: Update onQuery to return Promise<AiServiceResponse>
+  onQuery: (question: string) => Promise<AiServiceResponse>; // For context-based queries
+  isLoading: boolean; // General loading for initial context query
   currentMode: AppMode;
   documentSummary?: string | null;
-  processedTextContent?: string | null; 
+  documentSummarySuggestions?: string[];
+  processedTextContent?: string | null;
   sourceIdentifier?: string;
-  setAppIsLoading: (loading: boolean) => void; // For actions within chat
+  setAppIsLoading: (loading: boolean) => void;
   setAppLoadingMessage: (message: string) => void;
   setAppError: (error: string | null) => void;
 }
 
-export const QAChat: React.FC<QAChatProps> = ({ 
-    onQuery, 
-    isLoading: initialQueryLoading, 
-    currentMode, 
+export const QAChat: React.FC<QAChatProps> = ({
+    onQuery,
+    isLoading: contextQueryLoading,
+    currentMode,
     documentSummary,
+    documentSummarySuggestions,
+    processedTextContent, 
     sourceIdentifier,
     setAppIsLoading,
     setAppLoadingMessage,
@@ -37,7 +43,7 @@ export const QAChat: React.FC<QAChatProps> = ({
   const [inputValue, setInputValue] = useState<string>('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [isProcessingAction, setIsProcessingAction] = useState<boolean>(false); // Loading for simplify/search
+  const [isProcessingAction, setIsProcessingAction] = useState<boolean>(false);
 
   const ChatMarkdownComponents = {
       p: ({node, ...props}: any) => <p className="mb-1 break-words text-sm text-current" {...props} />,
@@ -45,37 +51,52 @@ export const QAChat: React.FC<QAChatProps> = ({
       ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-1 text-sm text-current" {...props} />,
       li: ({node, ...props}: any) => <li className="mb-0.5 text-sm text-current" {...props} />,
       a: ({node, ...props}: any) => {
-          const isUserMessageLink = node.position?.start.line !== undefined && messages.find(msg => msg.sender === 'user' && msg.text.includes(node.properties.href));
-          return <a 
-            className={`${isUserMessageLink ? 'text-white hover:text-blue-200' : 'text-blue-600 hover:text-blue-700'} underline text-sm`} 
-            target="_blank" rel="noopener noreferrer" {...props} 
+          // Check if the link is part of a user message or an AI message for styling
+          // This heuristic might not be perfect if users also send Markdown links
+          const parentMessage = messages.find(msg => {
+            if (!node?.position?.start?.line) return false;
+            // A simple check: if the href is in the raw message text
+            return msg.text.includes(node.properties.href);
+          });
+          const isUserMessageLink = parentMessage?.sender === 'user';
+
+          return <a
+            className={`${isUserMessageLink ? 'text-white hover:text-blue-200' : 'text-blue-600 hover:text-blue-700'} underline text-sm`}
+            target="_blank" rel="noopener noreferrer" {...props}
           />;
       },
-      strong: ({node, ...props}: any) => <strong className="font-semibold text-current" {...props} />,
+      strong: ({node, ...props}: any) => {
+        return <strong className="font-semibold text-current" {...props} />;
+      },
+      sup: ({node, ...props}: any) => {
+        // Standard sup rendering if AI or user uses it.
+        return <sup className="mx-0.5 text-blue-600 font-semibold hover:underline" {...props} />;
+      },
       code: ({node, inline, className, children, ...props}: any) => {
         const parentMessage = messages.find(msg => {
-            const msgTextLines = msg.text.split('\n');
-            const nodeText = String(children).trim();
-            return msgTextLines.some(line => line.includes(nodeText));
+            if (!node?.position?.start?.line) return false;
+            const nodeTextContent = String(children).trim();
+            return msg.text.split('\n').some(line => line.includes(nodeTextContent));
         });
         const isUserCode = parentMessage?.sender === 'user';
 
         return !inline ? (
-          <pre 
-            className={`my-1 p-2 rounded ${isUserCode ? 'bg-black/20' : 'bg-slate-100'} overflow-x-auto text-xs ${className || ''}`} 
+          <pre
+            className={`my-1 p-2 rounded ${isUserCode ? 'bg-black/20' : 'bg-slate-100'} overflow-x-auto text-xs ${className || ''}`}
             {...props}
           >
-            <code className={isUserCode ? 'text-white' : 'text-slate-800'}>{String(children).replace(/\n$/, '')}</code> 
+            <code className={isUserCode ? 'text-white' : 'text-slate-800'}>{String(children).replace(/\n$/, '')}</code>
           </pre>
         ) : (
-          <code 
-            className={`px-1 py-0.5 rounded text-xs ${isUserCode ? 'bg-black/20 text-white' : 'bg-slate-200 text-pink-600'}`} 
+          <code
+            className={`px-1 py-0.5 rounded text-xs ${isUserCode ? 'bg-black/20 text-white' : 'bg-slate-200 text-pink-600'}`}
             {...props}
            >
             {children}
           </code>
         );
       },
+      blockquote: ({node, ...props}:any) => <blockquote className={`my-1 pl-3 border-l-4 ${messages.find(msg => msg.text.includes(String(node.children[0]?.children[0]?.value)))?.sender === 'user' ? 'border-blue-400' : 'border-slate-300'} italic ${messages.find(msg => msg.text.includes(String(node.children[0]?.children[0]?.value)))?.sender === 'user' ? 'text-blue-100' : 'text-slate-600'} text-sm`} {...props} />
   };
 
   const EnhancedSummaryMarkdownComponents = {
@@ -108,61 +129,190 @@ export const QAChat: React.FC<QAChatProps> = ({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(scrollToBottom, [messages, isProcessingAction]);
+  useEffect(scrollToBottom, [messages, isProcessingAction, contextQueryLoading]);
 
   useEffect(() => {
     inputRef.current?.focus();
-  }, [currentMode, initialQueryLoading, isProcessingAction]); 
+  }, [currentMode, contextQueryLoading, isProcessingAction]);
 
   useEffect(() => {
-    setMessages([]);
-  }, [currentMode, sourceIdentifier]);
+    // Reset messages only if sourceIdentifier changes OR if it's documentQa and processedTextContent changes
+    if (currentMode === 'dataAnalysis') {
+        setMessages([]);
+    } else if (currentMode === 'documentQa') {
+        setMessages([]);
+    }
+  }, [currentMode, sourceIdentifier, processedTextContent]);
 
-  const handleSendMessage = async () => {
+  const addMessageToList = (sender: 'user' | 'ai', text: string, isInternetSearchResult: boolean = false, sources?: ChatMessage['sources'], suggestedQuestions?: string[], isSimplifiable?: boolean, originalTextForSimplification?: string, suggestsInternetSearch?: boolean, relatedUserQuestion?: string) => {
+    const newMessage: ChatMessage = {
+      id: Date.now().toString() + `_${sender}`,
+      sender,
+      text,
+      timestamp: new Date(),
+      isInternetSearchResult,
+      sources,
+      suggestedQuestions,
+      isSimplifiable,
+      originalTextForSimplification,
+      suggestsInternetSearch,
+      relatedUserQuestion,
+    };
+    setMessages(prev => [...prev, newMessage]);
+  };
+  
+  const handleNewAiResponse = (aiResponse: AiServiceResponse, isInternetSearch: boolean = false) => {
+    if (aiResponse.mainText) {
+      addMessageToList(
+        'ai', 
+        aiResponse.mainText, 
+        isInternetSearch, 
+        aiResponse.sources, 
+        undefined, // Suggestions will be in a separate message
+        !isInternetSearch && aiResponse.mainText.length > 100, // Simplifiable only for context/summary
+      );
+    }
+    if (aiResponse.suggestedQuestions && aiResponse.suggestedQuestions.length > 0) {
+      // Add a separate message for suggestions
+      addMessageToList(
+        'ai',
+        '', // No main text for suggestion-only message
+        false, // Not an internet search result itself
+        undefined, // No sources for suggestion-only message
+        aiResponse.suggestedQuestions
+      );
+    }
+  };
+
+
+  const handleQueryContext = async () => {
     if (inputValue.trim() === '') return;
     setAppError(null);
 
-    const userMessage: ChatMessage = {
-      id: Date.now().toString() + '_user',
-      sender: 'user',
-      text: inputValue,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, userMessage]);
+    addMessageToList('user', inputValue);
     const currentInput = inputValue;
     setInputValue('');
 
     try {
-      const aiResponseText = await onQuery(currentInput);
-      let processedText = aiResponseText;
+      const aiResponse = await onQuery(currentInput); // aiResponse is AiServiceResponse
+      let processedText = aiResponse.mainText;
       let suggestsSearch = false;
-      if (aiResponseText.startsWith(INFO_NOT_FOUND_MARKER)) {
-        processedText = aiResponseText.substring(INFO_NOT_FOUND_MARKER.length).trim();
+
+      if (aiResponse.mainText.startsWith(INFO_NOT_FOUND_MARKER)) {
+        processedText = aiResponse.mainText.substring(INFO_NOT_FOUND_MARKER.length).trim();
         suggestsSearch = true;
       }
+      
+      handleNewAiResponse({
+          mainText: processedText,
+          suggestedQuestions: aiResponse.suggestedQuestions,
+          sources: aiResponse.sources // Retain sources if onQuery can return them
+      }, false);
 
-      const aiMessage: ChatMessage = {
-        id: Date.now().toString() + '_ai',
-        sender: 'ai',
-        text: processedText,
-        timestamp: new Date(),
-        isSimplifiable: !suggestsSearch && processedText.length > 50, // Heuristic for simplifiable
-        suggestsInternetSearch: suggestsSearch,
-        relatedUserQuestion: suggestsSearch ? currentInput : undefined,
-      };
-      setMessages(prev => [...prev, aiMessage]);
+
+      if (suggestsSearch) {
+         setMessages(prevMessages => {
+            const lastAiMsgIndex = prevMessages.map((m, i) => m.sender === 'ai' ? i : -1).filter(i => i !== -1).pop();
+            // Fix: Use prevMessages for the condition and when spreading the original message
+            if (lastAiMsgIndex !== undefined && lastAiMsgIndex > -1 && prevMessages[lastAiMsgIndex].text === processedText) { // Ensure it's the correct message
+                const updatedMessages = [...prevMessages];
+                updatedMessages[lastAiMsgIndex] = {
+                    ...prevMessages[lastAiMsgIndex], // Use prevMessages here
+                    suggestsInternetSearch: true,
+                    relatedUserQuestion: currentInput
+                };
+                return updatedMessages;
+            }
+            return prevMessages;
+         });
+      }
+
+
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      setAppError(`Gagal mendapatkan jawaban dari AI: ${errorMessage}`);
-      const aiErrorMessage: ChatMessage = {
-        id: Date.now().toString() + '_ai_error',
-        sender: 'ai',
-        text: `Maaf, terjadi kesalahan saat mencoba mendapatkan jawaban: ${errorMessage}`,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, aiErrorMessage]);
+      setAppError(`Gagal mendapatkan jawaban dari AI (konteks): ${errorMessage}`);
+      addMessageToList('ai', `Maaf, terjadi kesalahan saat mencoba mendapatkan jawaban dari konteks: ${errorMessage}`);
     }
   };
+
+  const handleGeneralInternetSearch = async (query: string) => {
+    try {
+        // Fix: Destructure mainText as conversationalText
+        const { mainText: conversationalText, sources: conversationalSources, suggestedQuestions } = await getConversationalAnswerWithInternetSearch(query);
+        handleNewAiResponse({
+            mainText: conversationalText,
+            sources: conversationalSources,
+            suggestedQuestions: suggestedQuestions
+        }, true);
+    } catch (e) {
+        throw e; // Re-throw to be caught by the caller
+    }
+  };
+
+  const handleStructuredInternetSearch = async (query: string) => {
+    try {
+        // Fix: Destructure mainText as aiRawText
+        const { mainText: aiRawText, sources, suggestedQuestions } = await answerQuestionWithInternetSearch(query);
+        let processedAiText = aiRawText;
+
+        if (sources && sources.length > 0) {
+            const lines = aiRawText.split('\n');
+            let currentSourceIndex = 0;
+            processedAiText = lines.map(line => {
+                const match = line.match(/^(\s*\*?\s*\*\*Tautan Asli:\*\*\s*\[)(.*?)(\]\s*)$/);
+                if (match && currentSourceIndex < sources.length) {
+                    const sourceToUse = sources[currentSourceIndex];
+                    // Use placeholder from AI, which client should replace
+                    const placeholderTitle = match[2]; // This is what AI generated as "AI akan menuliskan judul..."
+                    const newLine = `${match[1]}${sourceToUse.title.replace(/\[|\]/g, '')}${match[3]}(${sourceToUse.uri})`;
+                    currentSourceIndex++;
+                    return newLine;
+                }
+                return line;
+            }).join('\n');
+        }
+         handleNewAiResponse({
+            mainText: processedAiText,
+            sources: sources,
+            suggestedQuestions: suggestedQuestions
+        }, true);
+    } catch (e) {
+        throw e; // Re-throw to be caught by the caller
+    }
+  };
+
+
+  const handleDirectInternetSearch = async (questionFromButton?: string) => {
+    const query = questionFromButton || inputValue;
+    if (query.trim() === '') return;
+    setAppError(null);
+    setIsProcessingAction(true);
+    setAppIsLoading(true);
+    setAppLoadingMessage(`Mencari di internet: "${query.substring(0,30)}..."`);
+
+    if (!questionFromButton) { // Only add user message if it's a new input, not from a suggestion button
+        addMessageToList('user', query);
+        setInputValue('');
+    }
+
+    try {
+      const lowerCaseQuery = query.toLowerCase();
+      if (lowerCaseQuery.startsWith('cari ') || lowerCaseQuery.startsWith('carikan ')) {
+        await handleStructuredInternetSearch(query);
+      } else {
+        await handleGeneralInternetSearch(query);
+      }
+
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setAppError(`Gagal mencari di internet: ${errorMessage}`);
+      addMessageToList('ai', `Maaf, terjadi kesalahan saat mencari di internet: ${errorMessage}`);
+    } finally {
+      setIsProcessingAction(false);
+      setAppIsLoading(false);
+    }
+  };
+
 
   const handleSimplify = async (messageId: string, textToSimplify: string) => {
     setAppError(null);
@@ -171,55 +321,43 @@ export const QAChat: React.FC<QAChatProps> = ({
     setAppLoadingMessage("Menyederhanakan jawaban...");
 
     try {
-      const simplifiedText = await simplifyText(textToSimplify);
-      const newAiMessage: ChatMessage = {
-        id: Date.now().toString() + '_ai_simplified',
-        sender: 'ai',
-        text: simplifiedText,
-        timestamp: new Date(),
-        isSimplifiable: false,
-        originalTextForSimplification: textToSimplify,
-        isInternetSearchResult: false,
-      };
+      const simplifiedResponse = await simplifyText(textToSimplify);
+      
       setMessages(prev => prev.map(msg => msg.id === messageId ? {...msg, isSimplifiable: false} : msg));
-      setMessages(prev => [...prev, newAiMessage]);
+      handleNewAiResponse({
+          mainText: simplifiedResponse.mainText,
+          suggestedQuestions: simplifiedResponse.suggestedQuestions
+      }, false);
+      
+      // Add original text to the newly created simplified message if needed for context
+      setMessages(prevMessages => {
+          const lastAiMsgIndex = prevMessages.map((m,i) => m.sender === 'ai' ? i : -1).filter(i => i !== -1).pop();
+           // Make sure we're updating the correct, newly added simplified message
+          if (lastAiMsgIndex !== undefined && lastAiMsgIndex > -1 && prevMessages[lastAiMsgIndex].text === simplifiedResponse.mainText) {
+                const updatedMessages = [...prevMessages];
+                updatedMessages[lastAiMsgIndex] = {
+                    ...updatedMessages[lastAiMsgIndex],
+                    originalTextForSimplification: textToSimplify
+                };
+                return updatedMessages;
+          }
+          return prevMessages;
+      });
+
+
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       setAppError(`Gagal menyederhanakan jawaban: ${errorMessage}`);
-      // Optionally add an error message to chat
     } finally {
       setIsProcessingAction(false);
       setAppIsLoading(false);
     }
   };
 
-  const handleInternetSearch = async (messageId: string, originalQuestion: string) => {
+  const handleFallbackInternetSearch = async (messageId: string, originalQuestion: string) => {
     if (!originalQuestion) return;
-    setAppError(null);
-    setIsProcessingAction(true);
-    setAppIsLoading(true);
-    setAppLoadingMessage(`Mencari jawaban di internet untuk: "${originalQuestion.substring(0,30)}..."`);
-
-    try {
-      const { text, sources } = await answerQuestionWithInternetSearch(originalQuestion);
-      const newAiMessage: ChatMessage = {
-        id: Date.now().toString() + '_ai_internet',
-        sender: 'ai',
-        text: text,
-        timestamp: new Date(),
-        isSimplifiable: text.length > 50,
-        isInternetSearchResult: true,
-        sources: sources,
-      };
-      setMessages(prev => prev.map(msg => msg.id === messageId ? {...msg, suggestsInternetSearch: false} : msg));
-      setMessages(prev => [...prev, newAiMessage]);
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      setAppError(`Gagal mencari di internet: ${errorMessage}`);
-    } finally {
-      setIsProcessingAction(false);
-      setAppIsLoading(false);
-    }
+    setMessages(prev => prev.map(msg => msg.id === messageId ? {...msg, suggestsInternetSearch: false} : msg));
+    await handleDirectInternetSearch(originalQuestion);
   };
 
 
@@ -235,23 +373,22 @@ export const QAChat: React.FC<QAChatProps> = ({
       return sourceIdentifier || 'Dokumen/Teks Anda';
     }
     return 'Konteks Anda';
-  }
+  };
 
-  const cardTitleText = `Tanya Jawab: ${getContextName()}`;
-  
-  const placeholderText = initialQueryLoading || isProcessingAction
+  const cardTitleText = `Tanya Jawab AI`;
+  const contextSpecificTitle = getContextName();
+
+  const placeholderText = contextQueryLoading || isProcessingAction
     ? "Memproses..."
-    : currentMode === 'dataAnalysis'
-    ? "Tanya tentang data Anda..."
-    : `Tanya tentang ${getContextName()}...`;
+    : "Ketik pertanyaan Anda di sini untuk pencarian internet...";
 
-  const initialMessageText = currentMode === 'dataAnalysis'
-    ? `Ajukan pertanyaan tentang dataset "${getContextName()}".`
-    : `Ajukan pertanyaan tentang konten dari ${getContextName()} yang telah Anda berikan.`;
-  
-  const initialMessageExample = currentMode === 'dataAnalysis'
-    ? "Contoh: 'Berapa nilai rata-rata di kolom Penjualan?'"
-    : "Contoh: 'Apa poin utama dari konten ini?' atau 'Apa itu fotosintesis?'";
+  const initialMessageText = `Ajukan pertanyaan apa pun. Saya akan mencoba menjawab menggunakan pencarian internet. Anda juga bisa bertanya spesifik tentang ${currentMode === 'dataAnalysis' ? `dataset "${contextSpecificTitle}"` : `konten "${contextSpecificTitle}"`} menggunakan tombol di bawah.`;
+
+  const initialMessageExample = `Contoh: "Apa berita terbaru tentang AI?", "Jelaskan fotosintesis", atau "Berapa total penjualan di ${contextSpecificTitle}?" (gunakan tombol 'Tanya Dataset').`;
+
+
+  const contextButtonText = currentMode === 'dataAnalysis' ? "Tanya Dataset" : "Tanya Dokumen";
+  const canQueryContext = currentMode === 'dataAnalysis' || (currentMode === 'documentQa' && (processedTextContent || documentSummary));
 
 
   return (
@@ -259,25 +396,49 @@ export const QAChat: React.FC<QAChatProps> = ({
       <div className="text-lg font-semibold text-slate-800 mb-0 flex items-center p-4 border-b border-slate-200">
         <ChatBubbleLeftEllipsisIcon className="w-6 h-6 mr-2 text-cyan-600" />
         {cardTitleText}
+        { (sourceIdentifier || (currentMode === 'documentQa' && (processedTextContent || documentSummary))) && canQueryContext &&
+          <span className="ml-2 text-sm font-normal text-slate-500 truncate max-w-[calc(100%-150px)]">(Konteks Aktif: {contextSpecificTitle})</span>
+        }
       </div>
 
-      {currentMode === 'documentQa' && documentSummary && (
+      {(currentMode === 'documentQa' && (documentSummary || documentSummarySuggestions)) && canQueryContext && (
         <div className="px-4 py-3 border-b border-slate-200">
-          <div className="flex items-center mb-2">
-              <DocumentTextIcon className="w-5 h-5 mr-2 text-blue-500" />
-              <span className="text-sm font-medium text-slate-700">
-                  Ringkasan Konten
-              </span>
-          </div>
-          <div className="prose prose-sm sm:prose-base max-w-none bg-slate-50 p-3 rounded-md border border-slate-200">
-           <ReactMarkdown components={EnhancedSummaryMarkdownComponents}>{documentSummary}</ReactMarkdown>
-          </div>
+          {documentSummary && (
+            <>
+              <div className="flex items-center mb-2">
+                  <DocumentTextIcon className="w-5 h-5 mr-2 text-blue-500" />
+                  <span className="text-sm font-medium text-slate-700">
+                      Ringkasan Konten ({contextSpecificTitle})
+                  </span>
+              </div>
+              <div className="prose prose-sm sm:prose-base max-w-none bg-slate-50 p-3 rounded-md border border-slate-200 mb-2">
+              <ReactMarkdown components={EnhancedSummaryMarkdownComponents}>{documentSummary}</ReactMarkdown>
+              </div>
+            </>
+          )}
+          {documentSummarySuggestions && documentSummarySuggestions.length > 0 && (
+            <div className="mt-2">
+                <h4 className="text-xs font-semibold text-slate-600 mb-1">Saran Pertanyaan (Ringkasan):</h4>
+                <div className="flex flex-wrap gap-1.5">
+                {documentSummarySuggestions.map((q, i) => (
+                    <button
+                    key={`summary-sugg-${i}`}
+                    onClick={() => handleDirectInternetSearch(q)}
+                    className="px-2 py-1 text-xs bg-sky-100 hover:bg-sky-200 text-sky-700 rounded-md transition-colors"
+                    disabled={isProcessingAction || contextQueryLoading}
+                    >
+                    {q}
+                    </button>
+                ))}
+                </div>
+            </div>
+          )}
         </div>
       )}
-      
+
       <div className="flex-grow flex flex-col overflow-hidden bg-slate-50">
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
-          {messages.length === 0 && !initialQueryLoading && !isProcessingAction && (
+          {messages.length === 0 && !contextQueryLoading && !isProcessingAction && (
               <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 p-4">
                 <ChatBubbleLeftEllipsisIcon className="w-16 h-16 mb-4 opacity-50 text-cyan-400" />
                 <h3 className="text-md font-semibold">{initialMessageText}</h3>
@@ -286,9 +447,9 @@ export const QAChat: React.FC<QAChatProps> = ({
           )}
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[75%] p-2.5 rounded-xl shadow-sm
-                  ${msg.sender === 'user' 
-                    ? 'bg-blue-600 text-white rounded-br-none' 
+              <div className={`max-w-[85%] p-2.5 rounded-xl shadow-sm
+                  ${msg.sender === 'user'
+                    ? 'bg-blue-600 text-white rounded-br-none'
                     : 'bg-white text-slate-800 rounded-bl-none border border-slate-200'
                   }`}
               >
@@ -299,16 +460,26 @@ export const QAChat: React.FC<QAChatProps> = ({
                       <SparklesIcon className="w-4 h-4 p-0.5 bg-green-400 text-white rounded-full" />
                   )}
                   <span className={`text-xs font-semibold ${msg.sender === 'user' ? 'text-white' : 'text-slate-800'}`}>
-                      {msg.sender === 'user' ? 'Anda' : msg.isInternetSearchResult ? 'Asisten AI (dari Internet)' : msg.originalTextForSimplification ? 'Asisten AI (Disederhanakan)' : 'Asisten AI'}
+                      {msg.sender === 'user' ? 'Anda' :
+                       msg.isInternetSearchResult ? 'Asisten AI (dari Internet)' :
+                       msg.originalTextForSimplification ? 'Asisten AI (Disederhanakan)' :
+                       currentMode === 'dataAnalysis' ? 'Asisten AI (dari Dataset)' :
+                       'Asisten AI (dari Dokumen/Teks)'
+                      }
                   </span>
                 </div>
-                <div className={`prose prose-sm max-w-none message-content ${msg.sender === 'user' ? 'text-white' : 'text-slate-800'}`}>
-                  <ReactMarkdown components={ChatMarkdownComponents}>{msg.text}</ReactMarkdown>
-                </div>
+                 {msg.text && (
+                    <div className={`prose prose-sm max-w-none message-content ${msg.sender === 'user' ? 'text-white' : 'text-slate-800'}`}>
+                        <ReactMarkdown components={ChatMarkdownComponents} >
+                            {msg.text}
+                        </ReactMarkdown>
+                    </div>
+                )}
+
                 {msg.sender === 'ai' && msg.sources && msg.sources.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-slate-200">
                     <h4 className="text-xs font-semibold text-slate-600 mb-1 flex items-center">
-                      <LinkIcon className="w-3 h-3 mr-1" /> Sumber:
+                      <LinkIcon className="w-3 h-3 mr-1" /> Sumber Tambahan yang Digunakan AI:
                     </h4>
                     <ul className="list-none pl-0 space-y-0.5">
                       {msg.sources.map((source, index) => (
@@ -327,13 +498,30 @@ export const QAChat: React.FC<QAChatProps> = ({
                     </ul>
                   </div>
                 )}
-                {msg.sender === 'ai' && (msg.isSimplifiable || msg.suggestsInternetSearch) && !isProcessingAction && (
+                 {msg.sender === 'ai' && msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && (
+                  <div className="mt-2 pt-1.5">
+                    <h4 className="text-xs font-semibold text-slate-600 mb-1.5">Saran Pertanyaan Lanjutan:</h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {msg.suggestedQuestions.map((q, i) => (
+                        <button
+                          key={`sugg-${msg.id}-${i}`}
+                          onClick={() => handleDirectInternetSearch(q)}
+                          className="px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                          disabled={isProcessingAction || contextQueryLoading}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {msg.sender === 'ai' && (msg.isSimplifiable || (msg.suggestsInternetSearch && msg.relatedUserQuestion)) && !isProcessingAction && !contextQueryLoading && (
                   <div className="mt-2 pt-2 border-t border-slate-200 space-x-2 flex justify-end">
                     {msg.isSimplifiable && (
                       <button
                         onClick={() => handleSimplify(msg.id, msg.text)}
-                        disabled={isProcessingAction}
-                        className="px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md flex items-center"
+                        disabled={isProcessingAction || contextQueryLoading}
+                        className="px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md flex items-center disabled:opacity-60 disabled:cursor-not-allowed"
                         title="Sederhanakan jawaban ini"
                       >
                         <LanguageIcon className="w-3.5 h-3.5 mr-1" /> Sederhanakan
@@ -341,9 +529,9 @@ export const QAChat: React.FC<QAChatProps> = ({
                     )}
                     {msg.suggestsInternetSearch && msg.relatedUserQuestion && (
                       <button
-                        onClick={() => handleInternetSearch(msg.id, msg.relatedUserQuestion!)}
-                        disabled={isProcessingAction}
-                        className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md flex items-center"
+                        onClick={() => handleFallbackInternetSearch(msg.id, msg.relatedUserQuestion!)}
+                        disabled={isProcessingAction || contextQueryLoading}
+                        className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md flex items-center disabled:opacity-60 disabled:cursor-not-allowed"
                         title="Cari jawaban ini di Internet"
                       >
                         <MagnifyingGlassIcon className="w-3.5 h-3.5 mr-1" /> Cari di Internet
@@ -357,7 +545,7 @@ export const QAChat: React.FC<QAChatProps> = ({
               </div>
             </div>
           ))}
-          {(initialQueryLoading || isProcessingAction) && messages[messages.length -1]?.sender === 'user' && (
+          {(contextQueryLoading || (isProcessingAction && messages[messages.length -1]?.sender === 'user')) && (messages.length === 0 || messages[messages.length -1]?.sender === 'user') && (
             <div className="flex justify-start">
               <div className="p-2.5 rounded-xl bg-white text-slate-800 shadow-sm rounded-bl-none inline-flex items-center space-x-2 border border-slate-200">
                 <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -371,36 +559,55 @@ export const QAChat: React.FC<QAChatProps> = ({
           <div ref={chatEndRef} />
         </div>
         <div className="p-3 sm:p-4 border-t border-slate-200 bg-white">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mb-2">
               <input
                 ref={inputRef}
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !initialQueryLoading && !isProcessingAction && inputValue.trim() !== '' && handleSendMessage()}
+                onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !contextQueryLoading && !isProcessingAction && inputValue.trim() !== '') {
+                        handleDirectInternetSearch(); 
+                    }
+                }}
                 placeholder={placeholderText}
-                disabled={initialQueryLoading || isProcessingAction}
+                disabled={contextQueryLoading || isProcessingAction}
                 aria-label="Ketik pertanyaan Anda"
-                className="flex-grow block w-full px-3 py-2.5 border border-slate-300 rounded-md shadow-sm 
-                           bg-white text-slate-900 
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-                           placeholder-slate-600 text-sm"
+                className="flex-grow block w-full px-3 py-2.5 border border-slate-300 rounded-md shadow-sm
+                           bg-white text-slate-900
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                           placeholder-slate-500 text-sm"
               />
+          </div>
+          <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
+             <button
+                type="button"
+                onClick={handleQueryContext}
+                disabled={contextQueryLoading || isProcessingAction || inputValue.trim() === '' || !canQueryContext}
+                className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-500 disabled:bg-slate-50 transition-colors"
+                aria-label={`Tanya konteks: ${contextButtonText}`}
+                title={!canQueryContext ? "Tidak ada konteks (data/dokumen) yang dimuat untuk ditanyakan." : `Tanya ${contextButtonText}`}
+              >
+                <ServerStackIcon className="h-5 w-5 mr-1.5" />
+                {contextButtonText}
+              </button>
               <button
                 type="button"
-                onClick={handleSendMessage}
-                disabled={initialQueryLoading || isProcessingAction || inputValue.trim() === ''}
-                className="p-2.5 rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                aria-label={(initialQueryLoading || isProcessingAction) ? "Mengirim pertanyaan" : "Kirim pertanyaan"}
+                onClick={() => handleDirectInternetSearch()}
+                disabled={contextQueryLoading || isProcessingAction || inputValue.trim() === ''}
+                className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                aria-label="Cari jawaban di Internet"
+                title="Cari jawaban di Internet"
               >
-                {(initialQueryLoading || isProcessingAction) ? (
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                {(isProcessingAction && !contextQueryLoading && messages[messages.length-1]?.text === inputValue) ? (
+                   <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 ) : (
-                  <PaperAirplaneIcon className="h-5 w-5" />
+                 <GlobeAltIcon className="h-5 w-5 mr-1.5" />
                 )}
+                Cari di Internet
               </button>
           </div>
         </div>

@@ -9,9 +9,17 @@ import { DocumentEvaluator } from './components/DocumentEvaluator';
 import { GuidePage } from './components/GuidePage';
 import { FirstVisitModal } from './components/FirstVisitModal';
 import { GuideBanner } from './components/GuideBanner';
-import { ParsedCsvData } from './types';
+import { ParsedCsvData, ChatMessage } from './types';
 import { analyzeColumns, SupportedCalculation as SupportedCalculationType } from './services/dataAnalysisService';
-import { generateInsights, answerQuestion, summarizeContent, answerQuestionFromContent, interpretUserCalculationRequest, evaluateDocumentWithReferences } from './services/aiService';
+import { 
+  generateInsights, 
+  answerQuestion, 
+  summarizeContent, 
+  answerQuestionFromContent, 
+  interpretUserCalculationRequest, 
+  evaluateDocumentWithReferences,
+  AiServiceResponse // Import AiServiceResponse if it's an exported type
+} from './services/aiService'; 
 import { ToastDisplay, ToastConfig } from './components/common/ToastDisplay';
 
 import {
@@ -75,9 +83,10 @@ const App: React.FC = () => {
   const [parsedData, setParsedData] = useState<ParsedCsvData | null>(null);
   const [processedTextContent, setProcessedTextContent] = useState<string | null>(null);
   const [documentSummary, setDocumentSummary] = useState<string | null>(null);
+  const [documentSummarySuggestions, setDocumentSummarySuggestions] = useState<string[] | undefined>(undefined);
   const [activeInputSourceIdentifier, setActiveInputSourceIdentifier] = useState<string | undefined>(undefined);
   
-  const [isLoading, setIsLoading] = useState<boolean>(false); // General loading for page-level operations
+  const [isLoading, setIsLoading] = useState<boolean>(false); 
   const [loadingMessage, setLoadingMessage] = useState<string>('Memproses...');
   const [error, setError] = useState<string | null>(null);
   
@@ -85,6 +94,7 @@ const App: React.FC = () => {
   const [currentMode, setCurrentMode] = useState<AppMode>('dataAnalysis'); 
 
   const [documentEvaluation, setDocumentEvaluation] = useState<string | null>(null);
+  const [evaluationSuggestions, setEvaluationSuggestions] = useState<string[] | undefined>(undefined);
   const [evaluationLoading, setEvaluationLoading] = useState<boolean>(false);
   const [toastConfig, setToastConfig] = useState<ToastConfig | null>(null);
   
@@ -122,7 +132,9 @@ const App: React.FC = () => {
     setParsedData(null);
     setProcessedTextContent(null);
     setDocumentSummary(null);
+    setDocumentSummarySuggestions(undefined);
     setDocumentEvaluation(null); 
+    setEvaluationSuggestions(undefined);
     setActiveInputSourceIdentifier(undefined);
     setError(null);
     if (!keepCurrentMode) {
@@ -166,44 +178,49 @@ const App: React.FC = () => {
     setProcessedTextContent(text);
     setActiveInputSourceIdentifier(sourceName);
     try {
-      const summary = await summarizeContent(text);
-      setDocumentSummary(summary);
+      const { mainText, suggestedQuestions } = await summarizeContent(text);
+      setDocumentSummary(mainText);
+      setDocumentSummarySuggestions(suggestedQuestions);
       setActiveSection(navigateToEvaluation ? 'evaluate' : 'qa'); 
     } catch (e) {
       console.error("Error summarizing content:", e);
       setError(`Gagal membuat ringkasan: ${e instanceof Error ? e.message : String(e)}`);
       setDocumentSummary(null);
+      setDocumentSummarySuggestions(undefined);
       setActiveSection('input'); 
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const handleGenerateInsights = useCallback(async () => {
-    if (!parsedData || currentMode !== 'dataAnalysis') return "Tidak ada data tabular untuk menghasilkan wawasan.";
-    setIsLoading(true); // Use main loading for this section's primary action
+  const handleGenerateInsights = useCallback(async (): Promise<AiServiceResponse> => {
+    if (!parsedData || currentMode !== 'dataAnalysis') {
+      return { mainText: "Tidak ada data tabular untuk menghasilkan wawasan.", suggestedQuestions: undefined };
+    }
+    setIsLoading(true); 
     setLoadingMessage("Menghasilkan wawasan AI...");
     setError(null);
     try {
-      const insights = await generateInsights(parsedData); 
-      return insights;
+      const insightsResponse = await generateInsights(parsedData); 
+      return insightsResponse;
     } catch (e) {
       console.error("Error generating insights:", e);
       const errorMessage = `Gagal menghasilkan wawasan: ${e instanceof Error ? e.message : String(e)}`;
       setError(errorMessage);
-      return errorMessage;
+      return { mainText: errorMessage, suggestedQuestions: undefined };
     } finally {
       setIsLoading(false);
     }
   }, [parsedData, currentMode]);
 
-  const handleQuery = useCallback(async (question: string) => {
-    setIsLoading(true); // Use main loading for initial query in QAChat
+  const handleQuery = useCallback(async (question: string): Promise<AiServiceResponse> => {
+    setIsLoading(true); 
     setLoadingMessage("Mencari jawaban...");
     setError(null);
     let calculationResultContext: string | undefined = undefined;
 
     try {
+      let aiResponse: AiServiceResponse;
       if (currentMode === 'dataAnalysis' && parsedData) {
         const interpretation = await interpretUserCalculationRequest(question, parsedData.columnInfos);
         let calculatedValue: number | string | null = null;
@@ -250,38 +267,50 @@ const App: React.FC = () => {
             calculationResultContext = `Saat mencoba menginterpretasi permintaan Anda ("${question}"), terjadi kendala: ${interpretation.errorMessage}.`;
         }
         
-        return await answerQuestion(dataSummaryForAI, question, calculationResultContext);
+        aiResponse = await answerQuestion(dataSummaryForAI, question, calculationResultContext);
 
       } else if (currentMode === 'documentQa' && processedTextContent) {
-        return await answerQuestionFromContent(processedTextContent, question);
+        aiResponse = await answerQuestionFromContent(processedTextContent, question);
+      } else {
+        aiResponse = { mainText: "Konteks tidak tersedia untuk menjawab pertanyaan. Silakan unggah data, dokumen, atau URL terlebih dahulu.", suggestedQuestions: undefined };
       }
-      return "Konteks tidak tersedia untuk menjawab pertanyaan. Silakan unggah data, dokumen, atau URL terlebih dahulu.";
+      return aiResponse;
+
     } catch (e) {
       console.error("Error answering question:", e);
       const errorMessage = `Gagal menjawab pertanyaan: ${e instanceof Error ? e.message : String(e)}`;
-      setError(errorMessage); // Set main error for query failures
-      return errorMessage;
+      setError(errorMessage); 
+      return { mainText: errorMessage, suggestedQuestions: undefined };
     } finally {
       setIsLoading(false);
     }
   }, [parsedData, processedTextContent, currentMode, dataSummaryForAI]);
   
-  const handleEvaluateDocument = useCallback(async () => {
+  const handleEvaluateDocument = useCallback(async (): Promise<AiServiceResponse> => {
     if (currentMode !== 'documentQa' || !processedTextContent) {
       setError("Tidak ada konten dokumen untuk dievaluasi.");
-      return;
+      const errResponse = { mainText: "Tidak ada konten dokumen untuk dievaluasi.", suggestedQuestions: undefined, sources: undefined };
+      setDocumentEvaluation(errResponse.mainText);
+      setEvaluationSuggestions(errResponse.suggestedQuestions);
+      return errResponse;
     }
     setEvaluationLoading(true);
     setError(null);
     setDocumentEvaluation(null);
+    setEvaluationSuggestions(undefined);
     try {
-      const evaluation = await evaluateDocumentWithReferences(processedTextContent);
-      setDocumentEvaluation(evaluation);
+      const response = await evaluateDocumentWithReferences(processedTextContent);
+      setDocumentEvaluation(response.mainText); 
+      setEvaluationSuggestions(response.suggestedQuestions);
+      // Note: sources are now part of response.mainText from aiService. If separate handling is needed, adjust aiService or here.
+      return response; 
     } catch (e) {
       console.error("Error evaluating document:", e);
       const errorMessage = `Gagal mengevaluasi dokumen: ${e instanceof Error ? e.message : String(e)}`;
       setError(errorMessage);
       setDocumentEvaluation(null); 
+      setEvaluationSuggestions(undefined);
+      return { mainText: errorMessage, suggestedQuestions: undefined, sources: undefined };
     } finally {
       setEvaluationLoading(false);
     }
@@ -323,17 +352,22 @@ const App: React.FC = () => {
       case 'visualize':
         return currentMode === 'dataAnalysis' && parsedData ? <DataVisualizer data={parsedData} /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
       case 'insights':
-        return currentMode === 'dataAnalysis' && parsedData ? <InsightsGenerator onGenerateInsights={handleGenerateInsights} isLoading={isLoading} /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
+        return currentMode === 'dataAnalysis' && parsedData ? 
+               <InsightsGenerator 
+                  onGenerateInsights={handleGenerateInsights} 
+                  isLoading={isLoading} 
+                /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
       case 'qa':
         return (currentMode === 'dataAnalysis' && parsedData) || (currentMode === 'documentQa' && processedTextContent) ? 
                <QAChat 
                   onQuery={handleQuery} 
-                  isLoading={isLoading} // This is for the initial query
+                  isLoading={isLoading} 
                   currentMode={currentMode}
                   documentSummary={documentSummary}
+                  documentSummarySuggestions={documentSummarySuggestions}
                   processedTextContent={processedTextContent}
                   sourceIdentifier={activeInputSourceIdentifier}
-                  setAppIsLoading={setIsLoading} // For actions within chat like simplify/search
+                  setAppIsLoading={setIsLoading} 
                   setAppLoadingMessage={setLoadingMessage}
                   setAppError={setError}
                 /> : commonDisabledMessage("Silakan input data, dokumen, atau teks terlebih dahulu untuk mengakses bagian ini.");
@@ -343,6 +377,7 @@ const App: React.FC = () => {
                   onEvaluate={handleEvaluateDocument}
                   isLoading={evaluationLoading} 
                   evaluationResult={documentEvaluation}
+                  evaluationSuggestions={evaluationSuggestions}
                   sourceIdentifier={activeInputSourceIdentifier}
                   onDocumentUploadedAndProcessed={handleDocumentOrTextProcessed} 
                   setAppIsLoading={setIsLoading} 
@@ -392,6 +427,12 @@ const App: React.FC = () => {
               if (currentMode === 'dataAnalysis' && !parsedData) isDisabled = true;
               else if (currentMode === 'documentQa' && !processedTextContent && item.requiredMode !== 'dataAnalysis') isDisabled = true; 
           }
+      }
+      // Special case for evaluate: needs processedTextContent or ability to upload
+      if (item.key === 'evaluate' && (!processedTextContent && currentMode !== 'documentQa')) {
+          // It's not strictly disabled as you can upload from there,
+          // but navigation might be restricted if nothing is loaded.
+          // The component itself handles the "no content" state.
       }
       return { ...item, disabled: isDisabled };
     });
