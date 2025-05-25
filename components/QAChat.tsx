@@ -169,7 +169,8 @@ export const QAChat: React.FC<QAChatProps> = ({
         isInternetSearch, 
         aiResponse.sources, 
         undefined, // Suggestions will be in a separate message
-        !isInternetSearch && aiResponse.mainText.length > 100, // Simplifiable only for context/summary
+        // Allow simplification for any AI message if it's long enough
+        aiResponse.mainText.length > 100, 
       );
     }
     if (aiResponse.suggestedQuestions && aiResponse.suggestedQuestions.length > 0) {
@@ -213,11 +214,10 @@ export const QAChat: React.FC<QAChatProps> = ({
       if (suggestsSearch) {
          setMessages(prevMessages => {
             const lastAiMsgIndex = prevMessages.map((m, i) => m.sender === 'ai' ? i : -1).filter(i => i !== -1).pop();
-            // Fix: Use prevMessages for the condition and when spreading the original message
-            if (lastAiMsgIndex !== undefined && lastAiMsgIndex > -1 && prevMessages[lastAiMsgIndex].text === processedText) { // Ensure it's the correct message
+            if (lastAiMsgIndex !== undefined && lastAiMsgIndex > -1 && prevMessages[lastAiMsgIndex].text === processedText) { 
                 const updatedMessages = [...prevMessages];
                 updatedMessages[lastAiMsgIndex] = {
-                    ...prevMessages[lastAiMsgIndex], // Use prevMessages here
+                    ...prevMessages[lastAiMsgIndex], 
                     suggestsInternetSearch: true,
                     relatedUserQuestion: currentInput
                 };
@@ -237,7 +237,6 @@ export const QAChat: React.FC<QAChatProps> = ({
 
   const handleGeneralInternetSearch = async (query: string) => {
     try {
-        // Fix: Destructure mainText as conversationalText
         const { mainText: conversationalText, sources: conversationalSources, suggestedQuestions } = await getConversationalAnswerWithInternetSearch(query);
         handleNewAiResponse({
             mainText: conversationalText,
@@ -251,7 +250,6 @@ export const QAChat: React.FC<QAChatProps> = ({
 
   const handleStructuredInternetSearch = async (query: string) => {
     try {
-        // Fix: Destructure mainText as aiRawText
         const { mainText: aiRawText, sources, suggestedQuestions } = await answerQuestionWithInternetSearch(query);
         let processedAiText = aiRawText;
 
