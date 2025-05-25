@@ -6,6 +6,8 @@ const API_KEY = process.env.API_KEY;
 let aiInstance: GoogleGenAI | null = null; 
 let apiKeyInitializationError: string | null = null;
 
+export const INFO_NOT_FOUND_MARKER = "[INFO_NOT_FOUND_SUGGEST_WEB_SEARCH]";
+
 
 function getAiInstance(): GoogleGenAI {
   if (apiKeyInitializationError) {
@@ -203,25 +205,19 @@ Kemampuan Anda Meliputi:
     *   Jika KONTEKS TAMBAHAN menyediakan hasil perhitungan, GUNAKAN HASIL TERSEBUT sebagai jawaban utama dan sajikan dengan jelas.
     *   Jika tidak ada KONTEKS TAMBAHAN, rujuk pada statistik yang sudah ada dalam ringkasan data jika pertanyaan dapat dijawab darinya. Misalnya, "Rata-rata untuk kolom 'Usia' adalah 25.5 tahun, seperti yang tertera dalam statistik kolom."
     *   Jika statistik tidak ada di ringkasan dan tidak ada hasil perhitungan yang diberikan, jelaskan bagaimana cara menghitungnya secara konseptual.
-3.  Memahami dan menjelaskan secara KONSEPTUAL fungsi spreadsheet yang lebih kompleks. Anda BELUM dapat MELAKUKAN perhitungan ini, tetapi Anda harus bisa MENJELASKAN CARA KERJANYA:
-    *   FUNGSI LOGIKA & KONDISIONAL (SUMIF, COUNTIF, AVERAGEIF, IF, AND, OR, NOT, IFS): Jelaskan logika kondisional dan bagaimana data akan difilter atau dievaluasi.
-    *   FUNGSI TEKS (CONCATENATE, LEFT, RIGHT, MID, LEN, FIND, REPLACE, SUBSTITUTE, TRIM, LOWER, UPPER, PROPER): Jelaskan tujuan masing-masing fungsi.
-    *   FUNGSI TANGGAL & WAKTU (TODAY, NOW, DATE, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, DATEDIF, WEEKDAY): Jelaskan bagaimana fungsi ini mengekstrak atau memanipulasi komponen tanggal/waktu.
-    *   FUNGSI LOOKUP (VLOOKUP - secara konseptual): Jelaskan sebagai cara mencari nilai di satu kolom dan mengembalikan nilai terkait dari kolom lain di baris yang sama.
-    *   FUNGSI MATEMATIKA TAMBAHAN (ROUND, ABS, POWER, SQRT): Jelaskan fungsi matematika dasar ini.
+3.  Memahami dan menjelaskan secara KONSEPTUAL fungsi spreadsheet yang lebih kompleks. Anda BELUM dapat MELAKUKAN perhitungan ini, tetapi Anda harus bisa MENJELASKAN CARA KERJANYA.
 
 Instruksi Penting:
 *   SELALU prioritaskan penggunaan HASIL PERHITUNGAN YANG DIBERIKAN dalam 'KONTEKS TAMBAHAN' jika ada.
 *   Jika tidak ada hasil yang diberikan, prioritaskan STATISTIK YANG SUDAH ADA dalam ringkasan data.
 *   Jika perhitungan diminta tetapi tidak ada hasil atau statistik relevan, JELASKAN PROSES ATAU METODE KONSEPTUAL. Jangan mengarang angka.
-*   Jika 'KONTEKS TAMBAHAN' mengindikasikan 'OPERATION_UNCLEAR' atau bahwa permintaan pengguna adalah untuk operasi kompleks di luar kemampuan perhitungan langsung (misalnya, membuat daftar item berdasarkan kondisi bersama seperti "pelanggan yang mendaftar pada tanggal yang sama"):
+*   Jika 'KONTEKS TAMBAHAN' mengindikasikan 'OPERATION_UNCLEAR' atau bahwa permintaan pengguna adalah untuk operasi kompleks di luar kemampuan perhitungan langsung:
     1.  Jelaskan dengan sopan bahwa sistem tidak dapat melakukan operasi kompleks tersebut secara langsung.
-    2.  Jelaskan secara konseptual bagaimana permintaan tersebut akan ditangani (misalnya, dengan mengelompokkan data).
-    3.  Jika ringkasan data memberikan petunjuk (misalnya, jumlah nilai unik lebih kecil dari jumlah baris untuk kolom yang relevan), gunakan itu untuk memberikan wawasan (misalnya, "Ini menunjukkan bahwa memang ada beberapa item yang berbagi [nilai/tanggal]").
-    4.  **Secara proaktif, tawarkan untuk menjawab pertanyaan terkait yang lebih sederhana yang *dapat* Anda jawab.** Contoh: "Meskipun saya tidak bisa membuat daftar semua [item] tersebut, saya bisa memberitahu Anda jumlah total [nilai/tanggal] unik. Apakah itu akan membantu?" atau "Anda bisa bertanya tentang jumlah [item] untuk [nilai/tanggal] tertentu."
+    2.  Jelaskan secara konseptual bagaimana permintaan tersebut akan ditangani.
+    3.  Tawarkan untuk menjawab pertanyaan terkait yang lebih sederhana.
+*   Jika pertanyaan tidak dapat dijawab dari data yang diberikan atau perhitungan tidak mungkin dilakukan, dan itu bukan pertanyaan umum yang bisa dijawab dengan pengetahuan umum (misalnya, definisi suatu istilah), awali jawaban Anda dengan penanda khusus ${INFO_NOT_FOUND_MARKER} lalu jelaskan mengapa secara sopan dan sarankan pencarian internet jika relevan.
 *   Sebutkan nama fungsi spreadsheet yang relevan jika pengguna menggunakan istilah umum (misalnya, "total" berarti SUM).
 *   Lakukan interpretasi perhitungan hanya pada kolom yang relevan. Jika tidak relevan, jelaskan mengapa.
-*   Jika pertanyaan tidak dapat dijawab dari data yang diberikan atau perhitungan tidak mungkin dilakukan (dan tidak ada hasil yang diberikan dan bukan kasus 'OPERATION_UNCLEAR' seperti di atas), jelaskan mengapa secara sopan.
 *   Jika pertanyaan bersifat ambigu, minta klarifikasi.
 *   Jawab dengan ringkas, jelas, dan langsung ke intinya. Gunakan poin-poin jika perlu.
 *   Anda TIDAK dapat mengeksekusi query SQL, membuat visualisasi, atau memodifikasi data. Fokus pada interpretasi, penjelasan, dan penyajian hasil yang diberikan.
@@ -277,8 +273,7 @@ export const answerQuestionFromContent = async (textContent: string, question: s
   const prompt = `
 Anda adalah asisten AI yang menjawab pertanyaan berdasarkan konten yang disediakan.
 Gunakan hanya informasi dari konten di bawah ini untuk menjawab pertanyaan.
-Jika jawaban tidak ditemukan dalam konten, nyatakan bahwa informasi tersebut tidak tersedia dalam teks yang diberikan.
-Jangan gunakan pengetahuan eksternal.
+Jika jawaban tidak ditemukan dalam konten, awali jawaban Anda dengan penanda khusus ${INFO_NOT_FOUND_MARKER} lalu nyatakan bahwa informasi tersebut tidak tersedia dalam teks yang diberikan dan bahwa pengguna dapat mencoba mencarinya di internet. Jangan gunakan pengetahuan eksternal.
 Jawab dengan bahasa yang sederhana dan mudah dipahami.
 
 Konten:
@@ -301,6 +296,78 @@ Jawaban (berdasarkan konten yang disediakan, dalam bahasa sederhana):
     throw new Error(enhanceErrorMessage(error));
   }
 };
+
+export const simplifyText = async (textToSimplify: string): Promise<string> => {
+  const currentAi = getAiInstance();
+  const prompt = `
+Tolong sederhanakan teks berikut agar lebih mudah dipahami oleh audiens umum.
+Gunakan bahasa yang jelas, hindari jargon teknis jika memungkinkan, dan pertahankan makna inti dari teks asli.
+Pastikan jawaban tetap akurat dan tidak menghilangkan informasi penting.
+Jawab HANYA dengan versi yang disederhanakan dari teks, tanpa tambahan kalimat pembuka atau penutup.
+
+Teks Asli:
+---
+${textToSimplify.substring(0, 30000)} ${textToSimplify.length > 30000 ? "... (teks dipotong)" : ""}
+---
+
+Versi yang Disederhanakan:
+`;
+  try {
+    const response: GenerateContentResponse = await currentAi.models.generateContent({
+      model: modelName,
+      contents: prompt,
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Kesalahan API AI (simplifyText):", error);
+    throw new Error(enhanceErrorMessage(error));
+  }
+};
+
+export const answerQuestionWithInternetSearch = async (question: string): Promise<{ text: string; sources?: Array<{ uri: string; title: string }> }> => {
+  const currentAi = getAiInstance();
+  const prompt = `
+Jawab pertanyaan pengguna berikut berdasarkan informasi yang Anda temukan dari internet menggunakan Google Search.
+Sajikan jawaban yang ringkas, jelas, dan relevan dalam bahasa Indonesia.
+Jika Anda menemukan beberapa sumber, prioritaskan informasi yang paling komprehensif dan kredibel.
+
+Pertanyaan Pengguna: "${question}"
+
+Jawaban (dalam bahasa Indonesia):
+`;
+  try {
+    const response: GenerateContentResponse = await currentAi.models.generateContent({
+      model: modelName,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    let answerText = response.text;
+    let sources: Array<{ uri: string; title: string }> | undefined = undefined;
+
+    const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+    if (groundingMetadata?.groundingChunks && groundingMetadata.groundingChunks.length > 0) {
+      const uniqueSources = new Map<string, string>();
+      groundingMetadata.groundingChunks.forEach(chunk => {
+        if (chunk.web && chunk.web.uri && chunk.web.title) {
+          if (!uniqueSources.has(chunk.web.uri)) {
+            uniqueSources.set(chunk.web.uri, chunk.web.title.trim());
+          }
+        }
+      });
+      if (uniqueSources.size > 0) {
+        sources = Array.from(uniqueSources.entries()).map(([uri, title]) => ({ uri, title }));
+      }
+    }
+    return { text: answerText, sources };
+  } catch (error) {
+    console.error("Kesalahan API AI (answerQuestionWithInternetSearch):", error);
+    throw new Error(enhanceErrorMessage(error));
+  }
+};
+
 
 export const evaluateDocumentWithReferences = async (textContent: string): Promise<string> => {
   const currentAi = getAiInstance();

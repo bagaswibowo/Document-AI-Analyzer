@@ -39,6 +39,12 @@ export interface ChatMessage {
   sender: 'user' | 'ai';
   text: string;
   timestamp: Date;
+  isSimplifiable?: boolean;
+  originalTextForSimplification?: string; 
+  suggestsInternetSearch?: boolean;
+  relatedUserQuestion?: string; 
+  isInternetSearchResult?: boolean;
+  sources?: Array<{ uri: string; title: string }>;
 }
 
 

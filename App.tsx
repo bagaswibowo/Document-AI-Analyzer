@@ -33,7 +33,6 @@ type CurrentView = 'app' | 'guide';
 
 const LOCAL_STORAGE_KEYS = {
   HAS_VISITED_BEFORE: 'appHasVisitedBefore',
-  // GUIDE_BANNER_DISMISSED is removed
 };
 
 const formatDataSummaryForAI = (data: ParsedCsvData | null): string => {
@@ -78,7 +77,7 @@ const App: React.FC = () => {
   const [documentSummary, setDocumentSummary] = useState<string | null>(null);
   const [activeInputSourceIdentifier, setActiveInputSourceIdentifier] = useState<string | undefined>(undefined);
   
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false); // General loading for page-level operations
   const [loadingMessage, setLoadingMessage] = useState<string>('Memproses...');
   const [error, setError] = useState<string | null>(null);
   
@@ -91,7 +90,6 @@ const App: React.FC = () => {
   
   const [currentView, setCurrentView] = useState<CurrentView>('app');
   const [showFirstVisitModal, setShowFirstVisitModal] = useState<boolean>(false);
-  // showGuideBanner state is removed, its rendering will be conditional
 
 
   useEffect(() => {
@@ -99,13 +97,11 @@ const App: React.FC = () => {
     if (!hasVisited) {
       setShowFirstVisitModal(true);
     }
-    // Banner visibility is now derived from currentView and showFirstVisitModal
   }, []);
 
   const handleDismissFirstVisitModal = useCallback(() => {
     setShowFirstVisitModal(false);
     localStorage.setItem(LOCAL_STORAGE_KEYS.HAS_VISITED_BEFORE, 'true');
-    // Banner will show if currentView is 'app' and modal is false
   }, []);
 
   const handleNavigateToGuide = useCallback(() => {
@@ -113,15 +109,12 @@ const App: React.FC = () => {
     if (showFirstVisitModal) {
         handleDismissFirstVisitModal(); 
     }
-    // Banner will be hidden as currentView is 'guide'
   }, [showFirstVisitModal, handleDismissFirstVisitModal]);
 
   const handleNavigateToApp = useCallback(() => {
     setCurrentView('app');
-    // Banner will show if currentView is 'app' and modal is false
   }, []);
 
-  // handleDismissGuideBanner is removed
 
   const dataSummaryForAI = useMemo(() => formatDataSummaryForAI(parsedData), [parsedData]);
 
@@ -188,7 +181,7 @@ const App: React.FC = () => {
 
   const handleGenerateInsights = useCallback(async () => {
     if (!parsedData || currentMode !== 'dataAnalysis') return "Tidak ada data tabular untuk menghasilkan wawasan.";
-    setIsLoading(true);
+    setIsLoading(true); // Use main loading for this section's primary action
     setLoadingMessage("Menghasilkan wawasan AI...");
     setError(null);
     try {
@@ -205,7 +198,7 @@ const App: React.FC = () => {
   }, [parsedData, currentMode]);
 
   const handleQuery = useCallback(async (question: string) => {
-    setIsLoading(true);
+    setIsLoading(true); // Use main loading for initial query in QAChat
     setLoadingMessage("Mencari jawaban...");
     setError(null);
     let calculationResultContext: string | undefined = undefined;
@@ -266,7 +259,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Error answering question:", e);
       const errorMessage = `Gagal menjawab pertanyaan: ${e instanceof Error ? e.message : String(e)}`;
-      setError(errorMessage);
+      setError(errorMessage); // Set main error for query failures
       return errorMessage;
     } finally {
       setIsLoading(false);
@@ -335,11 +328,14 @@ const App: React.FC = () => {
         return (currentMode === 'dataAnalysis' && parsedData) || (currentMode === 'documentQa' && processedTextContent) ? 
                <QAChat 
                   onQuery={handleQuery} 
-                  isLoading={isLoading} 
+                  isLoading={isLoading} // This is for the initial query
                   currentMode={currentMode}
                   documentSummary={documentSummary}
                   processedTextContent={processedTextContent}
                   sourceIdentifier={activeInputSourceIdentifier}
+                  setAppIsLoading={setIsLoading} // For actions within chat like simplify/search
+                  setAppLoadingMessage={setLoadingMessage}
+                  setAppError={setError}
                 /> : commonDisabledMessage("Silakan input data, dokumen, atau teks terlebih dahulu untuk mengakses bagian ini.");
       case 'evaluate':
         return <DocumentEvaluator
@@ -422,7 +418,7 @@ const App: React.FC = () => {
           // No specific action needed here for now
         }
         if (key === 'evaluate' && !processedTextContent) {
-          setCurrentMode('documentQa'); // Switch to document mode if trying to access evaluate without content
+          setCurrentMode('documentQa'); 
         }
         setActiveSection(key);
         setToastConfig(null); 
@@ -463,7 +459,6 @@ const App: React.FC = () => {
       {currentView === 'app' && !showFirstVisitModal && (
          <GuideBanner 
             onViewGuide={handleNavigateToGuide}
-            // onDismiss prop is removed
          />
       )}
       
@@ -519,8 +514,8 @@ const App: React.FC = () => {
           </nav>
         </footer>
       )}
-       <div className="text-center py-3 px-6 text-xs text-slate-700 bg-slate-200 mt-auto">
-         &copy; {new Date().getFullYear()} Bagas Wibowo. Hak Cipta Dilindungi.
+       <div className="text-center py-3 px-6 text-xs text-slate-700 bg-slate-200">
+         &copy; 2025 Bagas Wibowo. Hak Cipta Dilindungi.
       </div>
     </div>
   );
