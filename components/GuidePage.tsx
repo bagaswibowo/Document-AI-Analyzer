@@ -9,77 +9,153 @@ interface GuidePageProps {
 
 const guideContent = `
 ## Selamat Datang di Penganalisis & Evaluator Dokumen AI!
-Aplikasi ini dirancang untuk membantu Anda menggali wawasan dari data tabular, memahami dokumen dengan cepat, dan meningkatkan kualitas tulisan Anda dengan bantuan AI.
+Aplikasi ini dirancang untuk membantu Anda menggali wawasan dari data, memahami dokumen, dan meningkatkan kualitas tulisan dengan bantuan AI.
 
-### 1. Memulai (Tab Input)
-Tab **Input** adalah gerbang utama Anda. Pilih salah satu mode berikut untuk memulai:
+### A. Navigasi Dasar Aplikasi
+*   **Header (Bagian Atas):** Menampilkan judul aplikasi dan tombol **Panduan Penggunaan** (ikon tanda tanya) untuk kembali ke halaman ini.
+*   **Area Konten Utama (Tengah):** Tempat semua interaksi dan tampilan fitur berlangsung.
+*   **Menu Navigasi (Bagian Bawah Tetap):** Ikon-ikon ini adalah cara utama Anda berpindah antar bagian utama aplikasi:
+    *   **Input:** Untuk memulai dengan mengunggah file atau memasukkan teks.
+    *   **Ringkasan:** (Khusus data tabular) Menampilkan statistik dan sampel data Anda.
+    *   **Visualisasi:** (Khusus data tabular) Membuat grafik dari data Anda.
+    *   **Wawasan:** (Khusus data tabular) Mendapatkan analisis AI tentang data Anda.
+    *   **Tanya Jawab (QA):** Berinteraksi dengan AI, baik tentang data/dokumen yang dimuat maupun pencarian internet.
+    *   **Evaluasi:** (Khusus dokumen/teks) Menganalisis kualitas tulisan dan mendapatkan referensi.
+    *   *Catatan: Beberapa tombol menu mungkin tidak aktif jika belum ada data atau konten yang sesuai.*
+*   **Banner Panduan (di bawah Header):** Jika Anda baru pertama kali, akan ada banner yang mengarahkan ke panduan ini.
+*   **Modal Selamat Datang (saat kunjungan pertama):** Menawarkan opsi untuk langsung melihat panduan atau melanjutkan ke aplikasi.
 
-*   #### Mode Data Tabular
-    *   **Apa yang bisa diunggah?** File dengan format berikut:
-        *   **\`.csv\`**
-        *   **\`.tsv\`**
-        *   **\`.xls\`**
-        *   **\`.xlsx\`**
-    *   **Setelah unggah:** Aplikasi akan secara otomatis menganalisis data Anda. Anda akan diarahkan ke tab "Ringkasan". Dari sana, Anda dapat menjelajahi:
-        *   **Visualisasi:** Buat grafik interaktif.
-        *   **Wawasan:** Dapatkan analisis berbasis AI tentang data Anda.
-        *   **Tanya Jawab (Data):** Ajukan pertanyaan langsung tentang dataset Anda.
+### B. Memulai: Tab "Input"
+Tab **Input** adalah titik awal Anda. Aplikasi memiliki dua mode utama yang bisa dipilih dari sini:
 
-*   #### Mode Dokumen
-    *   **Apa yang bisa diunggah?** File dokumen seperti berikut:
-        *   **\`.pdf\`**
-        *   **\`.docx\`**
-        *   **\`.doc\`**
-        *   **\`.txt\`**
-    *   **Setelah unggah:** Teks dari dokumen akan diekstrak. Anda akan melihat ringkasan singkat dan bisa langsung:
-        *   **Tanya Jawab (Dokumen):** Bertanya tentang isi dokumen.
-        *   **Evaluasi:** Pindah ke tab "Evaluasi" untuk analisis kualitas dan referensi.
+#### B.1. Mode Input: Dokumen atau Teks Langsung
+Ini adalah mode default saat Anda pertama kali membuka tab Input.
 
-*   #### Mode Teks Langsung
-    *   **Bagaimana caranya?** Ketik atau tempel teks Anda langsung ke dalam area yang tersedia.
-    *   **Setelah input:** Sama seperti mode dokumen, Anda bisa menggunakan fitur "Tanya Jawab" atau "Evaluasi" untuk teks yang Anda masukkan.
+*   **Mengunggah File Dokumen (PDF, DOCX, DOC, TXT):**
+    1.  Pilih tab "Dokumen" (biasanya sudah aktif).
+    2.  Gunakan area "Unggah file atau seret dan lepas" untuk memilih file dari komputer Anda.
+    3.  **Format yang Didukung:** \`.pdf\`, \`.docx\`, \`.doc\`, \`.txt\`.
+    4.  **Batas Ukuran:** Maksimum sekitar 25 MB.
+    5.  **Catatan untuk \`.doc\`:** File Word versi lama (\`.doc\`) mungkin memiliki keterbatasan ekstraksi. Disarankan menggunakan \`.docx\` atau \`.pdf\` untuk hasil terbaik.
+    6.  **Setelah Unggah & Proses:**
+        *   Teks dari dokumen Anda akan diekstrak.
+        *   Anda akan otomatis diarahkan ke tab **Tanya Jawab (QA)**.
+        *   Ringkasan singkat dari dokumen (jika berhasil dibuat) akan muncul di bagian atas area chat QA.
+        *   Anda dapat langsung bertanya tentang isi dokumen tersebut atau menggunakan fitur pencarian internet.
+        *   Anda juga dapat langsung ke tab **Evaluasi** dari menu navigasi bawah untuk analisis lebih lanjut.
 
-### 2. Menganalisis Data Tabular (Menu Navigasi Bawah)
-Setelah file tabular Anda diproses, gunakan menu di bagian bawah untuk fitur-fitur ini:
+*   **Memasukkan Teks Langsung:**
+    1.  Pilih tab "Teks Langsung".
+    2.  Ketik atau tempel teks Anda ke dalam area yang tersedia.
+    3.  **Batas Kata:** Maksimum sekitar 20.000 kata.
+    4.  **Setelah Input & Proses:**
+        *   Sama seperti unggah dokumen, Anda akan diarahkan ke tab **Tanya Jawab (QA)**.
+        *   Ringkasan singkat dari teks (jika berhasil dibuat) akan muncul di area chat QA.
+        *   Anda bisa bertanya tentang teks tersebut atau melakukan pencarian internet.
+        *   Tab **Evaluasi** juga tersedia untuk analisis teks ini.
 
-*   **Ringkasan (Overview):**
-    *   Lihat informasi dasar: nama file, jumlah baris dan kolom.
-    *   Pahami struktur data: detail per kolom (tipe data, data hilang, nilai unik).
-    *   Intip data Anda: beberapa baris sampel dari dataset.
-*   **Visualisasi (Visualize):**
-    *   Pilih jenis grafik: Bar, Line, Area, Pie, Doughnut, Scatter, atau Histogram.
-    *   Pilih kolom untuk sumbu X dan Y (jika diperlukan) atau kolom kategori untuk Pie/Doughnut.
-    *   Sesuaikan jumlah bins untuk Histogram.
-    *   Grafik akan otomatis diperbarui berdasarkan pilihan Anda.
-*   **Wawasan (Insights):**
-    *   Klik tombol "Hasilkan Wawasan".
-    *   AI akan menganalisis data Anda dan menyajikan temuan-temuan menarik, pola, atau anomali dalam format yang mudah dibaca.
-*   **Tanya Jawab (Mode Data):**
-    *   Area chat untuk bertanya tentang dataset Anda menggunakan bahasa sehari-hari.
-    *   Contoh: "Berapa rata-rata kolom penjualan?", "Tampilkan 5 baris dengan nilai tertinggi di kolom skor", "Total pendapatan dari produk A?".
-    *   Sistem dapat mencoba melakukan perhitungan dasar berdasarkan permintaan Anda.
+#### B.2. Mode Input: Data Tabular
+1.  Pilih tab "Data Tabular".
+2.  Gunakan area unggah untuk memilih file data dari komputer Anda.
+3.  **Format yang Didukung:** \`.csv\`, \`.tsv\`, \`.xls\`, \`.xlsx\`.
+4.  **Batas Ukuran:** Maksimum sekitar 25 MB.
+5.  **Setelah Unggah & Proses:**
+    *   Aplikasi akan menganalisis struktur data Anda (kolom, tipe data, statistik dasar).
+    *   Anda akan otomatis diarahkan ke tab **Ringkasan**.
+    *   Dari sini, Anda dapat menggunakan tab **Visualisasi**, **Wawasan**, dan **Tanya Jawab (QA)** yang spesifik untuk data tabular.
 
-### 3. Bekerja dengan Dokumen dan Teks
-*   **Tanya Jawab (Mode Dokumen/Teks):**
-    *   Setelah dokumen diunggah atau teks dimasukkan, ringkasan otomatis akan muncul di atas area chat (jika berhasil dibuat).
-    *   Ajukan pertanyaan spesifik tentang konten. AI akan berusaha menjawab berdasarkan teks yang Anda berikan.
-    *   Contoh: "Apa saja poin-poin utama dari teks ini?", "Siapa yang disebutkan dalam dokumen ini terkait proyek X?".
-*   **Evaluasi (Tab Evaluasi):**
-    *   Jika Anda sudah memproses dokumen/teks dari tab Input, kontennya akan tersedia di sini. Anda juga bisa mengunggah file baru langsung di tab Evaluasi.
-    *   Klik tombol "Evaluasi dengan Referensi Internet". AI akan:
-        1.  **Menganalisis Kualitas Teks:** Memberikan penilaian terhadap kejelasan, kelengkapan, potensi akurasi, dan bias.
-        2.  **Memberikan Saran Perbaikan:** Menawarkan ide konkret untuk meningkatkan tulisan Anda.
-        3.  **Mencari Referensi:** Mencoba menemukan 2-4 sumber dari internet yang relevan, mendukung, atau mengkontraskan poin utama teks Anda, lengkap dengan tautan.
+### C. Fitur untuk Dokumen dan Teks Langsung
 
-### 4. Navigasi Utama
-Ikon-ikon di bagian bawah layar adalah cara utama Anda berpindah antar fitur. Beberapa tombol mungkin tidak aktif jika belum ada data atau konten yang sesuai (misalnya, "Visualisasi" tidak aktif jika belum ada data tabular yang diunggah).
+#### C.1. Tab Tanya Jawab (QA) - Mode Dokumen/Teks
+*   **Konteks:** Setelah memproses dokumen atau teks dari tab Input, konten tersebut menjadi konteks aktif. Ringkasan otomatis (jika ada) akan ditampilkan.
+*   **Bertanya tentang Konten:** Gunakan tombol **"Tanya Dokumen"** (atau "Tanya Teks") di bawah kolom input chat untuk pertanyaan spesifik mengenai isi dokumen/teks yang aktif. Contoh: "Apa poin utama teks ini?".
+*   **Pencarian Internet:** Jika Anda mengetik pertanyaan di kolom input utama dan menekan Enter atau tombol **"Cari di Internet"**, AI akan mencari jawaban dari web (lihat bagian E).
+*   **Info Tidak Ditemukan:** Jika AI tidak menemukan jawaban dalam dokumen/teks untuk pertanyaan kontekstual, ia akan memberitahu Anda dan mungkin menyarankan untuk mencoba pencarian internet (akan ada tombol "Cari di Internet" di pesan AI tersebut).
 
-### Tips Penggunaan Efektif:
-*   **API Key:** Anda tidak perlu khawatir tentang API Key, aplikasi ini sudah dikonfigurasi.
-*   **Batas Ukuran File:** Perhatikan batas ukuran file yang tertera saat mengunggah (umumnya sekitar 25MB). File yang lebih besar mungkin gagal diproses.
-*   **Pesan Kesalahan:** Jika ada masalah, pesan kesalahan akan muncul di bagian atas layar. Coba periksa kembali file atau input Anda, atau coba lagi.
-*   **Format .doc:** Untuk file Word versi lama (\`.doc\`), ekstraksi teks mungkin kurang optimal dibandingkan \`.docx\`. Jika memungkinkan, konversi ke \`.docx\` atau \`.pdf\` untuk hasil terbaik.
-*   **Kesabaran:** Beberapa proses AI (seperti menghasilkan wawasan atau evaluasi) mungkin memerlukan beberapa saat. Mohon tunggu hingga proses selesai.
+#### C.2. Tab Evaluasi
+*   **Akses:** Bisa diakses setelah memproses dokumen/teks dari Input, atau Anda bisa mengunggah file baru langsung di sini.
+*   **Konten Asli:** Jika ada dokumen/teks yang aktif, pratinjaunya akan ditampilkan.
+*   **Proses Evaluasi:** Klik tombol **"Evaluasi dengan Referensi Internet"**.
+*   **Hasil Evaluasi AI:**
+    1.  **Analisis Kualitas Teks:** Penilaian tentang kejelasan, kelengkapan, potensi akurasi, dan bias.
+    2.  **Saran Perbaikan:** Ide konkret untuk meningkatkan tulisan.
+    3.  **Referensi Internet:** 2-4 tautan sumber dari internet yang relevan dengan topik utama, ditampilkan di akhir hasil evaluasi.
+*   **Saran Pertanyaan Lanjutan:** Di bawah hasil evaluasi, akan ada tombol-tombol saran pertanyaan (lihat bagian F.1).
+
+### D. Fitur untuk Data Tabular
+
+#### D.1. Tab Ringkasan
+*   **Informasi Umum:** Nama file, jumlah baris, jumlah kolom, dan estimasi ukuran.
+*   **Detail Informasi Kolom:** Tabel yang menampilkan:
+    *   Nama Kolom
+    *   Tipe Data (number, string, boolean, date)
+    *   Jumlah Data Hilang (dan persentasenya)
+    *   Jumlah Nilai Unik
+    *   Statistik (Mean, Median, Modus, Min, Max) - jika relevan untuk tipe datanya.
+*   **Data Sampel:** Tabel yang menampilkan 10 baris pertama dari dataset Anda.
+
+#### D.2. Tab Visualisasi
+*   **Jenis Grafik:** Pilih dari berbagai jenis grafik seperti Bar, Line, Area, Pie, Doughnut, Scatter, dan Histogram.
+*   **Pemilihan Kolom:**
+    *   Pilih kolom untuk sumbu X dan Y (untuk grafik seperti Bar, Line, Scatter, Area).
+    *   Pilih kolom kategori untuk grafik Pie atau Doughnut.
+    *   Pilih kolom numerik untuk Histogram dan sesuaikan jumlah *bins* (kelompok data).
+*   **Interaktif:** Grafik akan otomatis diperbarui saat Anda mengubah pilihan.
+
+#### D.3. Tab Wawasan
+*   Klik tombol **"Hasilkan Wawasan"**.
+*   AI akan menganalisis data Anda berdasarkan ringkasan statistik dan memberikan temuan-temuan menarik, pola, atau anomali dalam format naratif yang mudah dibaca.
+*   **Saran Pertanyaan Lanjutan:** Di bawah hasil wawasan, akan ada tombol-tombol saran pertanyaan (lihat bagian F.1).
+
+#### D.4. Tab Tanya Jawab (QA) - Mode Data Tabular
+*   **Konteks:** Dataset yang Anda unggah menjadi konteks aktif.
+*   **Bertanya tentang Data:** Gunakan tombol **"Tanya Dataset"** di bawah kolom input chat untuk pertanyaan spesifik tentang dataset. Contoh: "Berapa rata-rata kolom 'Penjualan'?", "Produk mana yang paling banyak terjual?".
+*   **Perhitungan Dasar:** Sistem akan mencoba melakukan perhitungan statistik dasar (SUM, AVERAGE, dll.) jika diminta.
+*   **Pencarian Internet:** Sama seperti mode dokumen, input utama dan tombol "Cari di Internet" akan menggunakan pencarian web (lihat bagian E).
+*   **Info Tidak Ditemukan:** Jika AI tidak bisa menjawab pertanyaan dari data yang ada, ia akan memberitahu Anda dan mungkin menyarankan pencarian internet.
+
+### E. Fitur Tanya Jawab (QA) Lanjutan - Pencarian Internet
+Fitur ini tersedia di tab Tanya Jawab, baik saat ada konteks data/dokumen maupun tidak.
+
+#### E.1. Cara Menggunakan:
+*   **Pertanyaan Umum:** Ketik pertanyaan Anda di kolom input utama dan tekan Enter atau klik tombol **"Cari di Internet"**. Ini akan memicu pencarian internet.
+*   **Pertanyaan Kontekstual:** Jika pertanyaan Anda spesifik untuk data atau dokumen yang sedang aktif, gunakan tombol **"Tanya Dataset"** atau **"Tanya Dokumen"**. Jika AI tidak menemukan jawaban di konteks, ia mungkin memberi opsi untuk mencari di internet.
+
+#### E.2. Jenis Hasil Pencarian Internet:
+*   **Pencarian Percakapan (untuk pertanyaan umum):**
+    *   AI akan menjawab dalam format naratif yang mengalir.
+    *   Jika AI menggunakan informasi dari sumber spesifik, ia akan mencoba **menyematkan tautan ke sumber tersebut secara alami dalam kalimat** (contoh: "Menurut [Wikipedia](URL)..., ..."). Tautan ini bisa diklik dan membuka tab baru.
+    *   Daftar **"Sumber Tambahan yang Digunakan AI:"** juga akan muncul di bawah jawaban AI, berisi tautan mentah yang diakses AI.
+*   **Pencarian Terstruktur (jika pertanyaan diawali "cari..." atau "carikan..."):**
+    *   Contoh: "Carikan artikel tentang manfaat olahraga."
+    *   AI akan memberikan daftar sumber yang lebih terstruktur, masing-masing berisi:
+        *   **Judul Halaman Web.**
+        *   **Tautan Asli:** Tautan langsung yang bisa diklik ke sumbernya.
+        *   **Ringkasan Detail:** Penjelasan singkat konten halaman, dengan bagian penting yang mungkin **ditebalkan**.
+    *   Daftar **"Sumber Tambahan yang Digunakan AI:"** juga akan muncul.
+
+### F. Fitur Interaktif Umum di Seluruh Aplikasi
+
+#### F.1. Saran Pertanyaan Lanjutan
+*   **Tampilan:** Setelah hampir setiap respons AI (ringkasan, QA kontekstual, wawasan, evaluasi, dan semua jenis pencarian internet), akan muncul **pesan AI kedua yang terpisah**. Pesan ini berisi beberapa tombol **"Saran Pertanyaan Lanjutan"**.
+*   **Fungsi:** Klik salah satu tombol saran untuk langsung mengirimkannya sebagai pertanyaan baru. Pertanyaan ini umumnya akan dijawab menggunakan pencarian internet.
+*   **Tampilan Teks Saran:** Saran pertanyaan ditampilkan sebagai teks biasa tanpa format tebal atau poin.
+
+#### F.2. Tombol "Sederhanakan"
+*   **Kapan Muncul:** Jika jawaban AI (misalnya dari hasil analisis, evaluasi, atau bahkan pencarian internet) dirasa cukup panjang atau kompleks, tombol **"Sederhanakan"** mungkin muncul di bawah pesan AI tersebut.
+*   **Fungsi:** Klik tombol ini, dan AI akan mencoba menyajikan ulang informasi tersebut dalam bahasa yang lebih ringkas dan mudah dipahami, beserta saran pertanyaan baru.
+
+#### F.3. Penanganan Error
+*   Jika terjadi masalah (misalnya, file gagal diproses, API gagal), pesan kesalahan akan muncul di bagian atas layar aplikasi, berwarna merah.
+*   Anda dapat menutup pesan error dengan mengklik ikon silang (X).
+
+#### F.4. Notifikasi Toast
+*   Untuk beberapa aksi atau peringatan (misalnya, mencoba mengakses tab yang memerlukan data padahal data belum ada), notifikasi singkat (toast) mungkin muncul di bagian atas layar. Beberapa notifikasi mungkin memiliki tombol aksi, seperti "Ke Halaman Input".
+
+### G. Tips Penggunaan & Catatan Tambahan
+*   **API Key:** Anda tidak perlu mengatur API Key, aplikasi ini sudah dikonfigurasi secara internal.
+*   **Kesabaran:** Proses AI seperti analisis data, evaluasi mendalam, atau pencarian internet yang kompleks mungkin memerlukan beberapa detik. Mohon tunggu hingga proses selesai.
+*   **Teks Tebal:** Teks yang **ditebalkan** oleh AI dalam jawabannya hanya akan ditampilkan tebal standar tanpa warna atau latar belakang khusus.
 
 Semoga panduan ini membantu Anda memanfaatkan semua fitur aplikasi dengan maksimal!
 `;

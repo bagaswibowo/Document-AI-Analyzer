@@ -178,7 +178,7 @@ export const QAChat: React.FC<QAChatProps> = ({
       addMessageToList(
         'ai',
         '', // No main text for suggestion-only message
-        false, // Not an internet search result itself
+        isInternetSearch, // Inherit internet search status for the suggestion message
         undefined, // No sources for suggestion-only message
         aiResponse.suggestedQuestions
       );
