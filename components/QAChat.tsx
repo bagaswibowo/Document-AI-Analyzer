@@ -1,9 +1,7 @@
 
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from '../types';
 import type { AppMode } from '../App';
-// Fix: Import AiServiceResponse for correct prop typing
 import { INFO_NOT_FOUND_MARKER, simplifyText, answerQuestionWithInternetSearch, getConversationalAnswerWithInternetSearch, AiServiceResponse } from '../services/aiService';
 
 
@@ -12,14 +10,17 @@ import {
   PaperAirplaneIcon, UserIcon, SparklesIcon, ChatBubbleLeftEllipsisIcon, DocumentTextIcon,
   LanguageIcon, MagnifyingGlassIcon, LinkIcon, ServerStackIcon, GlobeAltIcon
 } from '@heroicons/react/24/solid';
+import { LightBulbIcon as LightBulbSolidIcon } from '@heroicons/react/24/solid'; // For tabular insights
+
 
 interface QAChatProps {
-  // Fix: Update onQuery to return Promise<AiServiceResponse>
-  onQuery: (question: string) => Promise<AiServiceResponse>; // For context-based queries
-  isLoading: boolean; // General loading for initial context query
+  onQuery: (question: string) => Promise<AiServiceResponse>;
+  isLoading: boolean;
   currentMode: AppMode;
   documentSummary?: string | null;
   documentSummarySuggestions?: string[];
+  tabularInsights?: string | null; // New prop
+  tabularInsightsSuggestions?: string[]; // New prop
   processedTextContent?: string | null;
   sourceIdentifier?: string;
   setAppIsLoading: (loading: boolean) => void;
@@ -29,11 +30,13 @@ interface QAChatProps {
 
 export const QAChat: React.FC<QAChatProps> = ({
     onQuery,
-    isLoading: contextQueryLoading,
+    isLoading: contextQueryLoading, // This is the app-level loading state, managed by App.tsx via onQuery
     currentMode,
     documentSummary,
     documentSummarySuggestions,
-    processedTextContent, 
+    tabularInsights,
+    tabularInsightsSuggestions,
+    processedTextContent,
     sourceIdentifier,
     setAppIsLoading,
     setAppLoadingMessage,
@@ -43,7 +46,7 @@ export const QAChat: React.FC<QAChatProps> = ({
   const [inputValue, setInputValue] = useState<string>('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [isProcessingAction, setIsProcessingAction] = useState<boolean>(false);
+  const [isProcessingAction, setIsProcessingAction] = useState<boolean>(false); // Local loading for actions like internet search or simplify
 
   const ChatMarkdownComponents = {
       p: ({node, ...props}: any) => <p className="mb-1 break-words text-sm text-current" {...props} />,
@@ -51,11 +54,8 @@ export const QAChat: React.FC<QAChatProps> = ({
       ol: ({node, ...props}: any) => <ol className="list-decimal pl-5 my-1 text-sm text-current" {...props} />,
       li: ({node, ...props}: any) => <li className="mb-0.5 text-sm text-current" {...props} />,
       a: ({node, ...props}: any) => {
-          // Check if the link is part of a user message or an AI message for styling
-          // This heuristic might not be perfect if users also send Markdown links
           const parentMessage = messages.find(msg => {
             if (!node?.position?.start?.line) return false;
-            // A simple check: if the href is in the raw message text
             return msg.text.includes(node.properties.href);
           });
           const isUserMessageLink = parentMessage?.sender === 'user';
@@ -69,7 +69,6 @@ export const QAChat: React.FC<QAChatProps> = ({
         return <strong className="font-semibold text-current" {...props} />;
       },
       sup: ({node, ...props}: any) => {
-        // Standard sup rendering if AI or user uses it.
         return <sup className="mx-0.5 text-blue-600 font-semibold hover:underline" {...props} />;
       },
       code: ({node, inline, className, children, ...props}: any) => {
@@ -136,13 +135,10 @@ export const QAChat: React.FC<QAChatProps> = ({
   }, [currentMode, contextQueryLoading, isProcessingAction]);
 
   useEffect(() => {
-    // Reset messages only if sourceIdentifier changes OR if it's documentQa and processedTextContent changes
-    if (currentMode === 'dataAnalysis') {
-        setMessages([]);
-    } else if (currentMode === 'documentQa') {
+    if (currentMode === 'dataAnalysis' || currentMode === 'documentQa') {
         setMessages([]);
     }
-  }, [currentMode, sourceIdentifier, processedTextContent]);
+  }, [currentMode, sourceIdentifier, processedTextContent, tabularInsights]);
 
   const addMessageToList = (sender: 'user' | 'ai', text: string, isInternetSearchResult: boolean = false, sources?: ChatMessage['sources'], suggestedQuestions?: string[], isSimplifiable?: boolean, originalTextForSimplification?: string, suggestsInternetSearch?: boolean, relatedUserQuestion?: string) => {
     const newMessage: ChatMessage = {
@@ -160,42 +156,48 @@ export const QAChat: React.FC<QAChatProps> = ({
     };
     setMessages(prev => [...prev, newMessage]);
   };
-  
+
   const handleNewAiResponse = (aiResponse: AiServiceResponse, isInternetSearch: boolean = false) => {
     if (aiResponse.mainText) {
       addMessageToList(
-        'ai', 
-        aiResponse.mainText, 
-        isInternetSearch, 
-        aiResponse.sources, 
-        undefined, // Suggestions will be in a separate message
-        // Allow simplification for any AI message if it's long enough
-        aiResponse.mainText.length > 100, 
+        'ai',
+        aiResponse.mainText,
+        isInternetSearch,
+        aiResponse.sources,
+        undefined, // Suggestions are handled by the next block
+        aiResponse.mainText.length > 100,
       );
     }
     if (aiResponse.suggestedQuestions && aiResponse.suggestedQuestions.length > 0) {
-      // Add a separate message for suggestions
-      addMessageToList(
-        'ai',
-        '', // No main text for suggestion-only message
-        isInternetSearch, // Inherit internet search status for the suggestion message
-        undefined, // No sources for suggestion-only message
-        aiResponse.suggestedQuestions
-      );
+      // Check if the last AI message already has suggestions from a previous step
+      // to avoid adding duplicate suggestion blocks.
+      // This is mainly for when handleNewAiResponse is called multiple times for one user interaction (e.g. simplify)
+      const lastMsg = messages[messages.length -1];
+      if (!(lastMsg?.sender === 'ai' && lastMsg?.suggestedQuestions && lastMsg.text === '')) {
+          addMessageToList(
+            'ai',
+            '', // Empty text for suggestion-only message
+            isInternetSearch,
+            undefined,
+            aiResponse.suggestedQuestions
+          );
+      }
     }
   };
 
 
-  const handleQueryContext = async () => {
-    if (inputValue.trim() === '') return;
+  const handleQueryContext = async (question?: string) => {
+    const queryText = question || inputValue;
+    if (queryText.trim() === '') return;
     setAppError(null);
 
-    addMessageToList('user', inputValue);
-    const currentInput = inputValue;
-    setInputValue('');
+    addMessageToList('user', queryText);
+    const currentInput = queryText; // Store before clearing
+    if(!question) setInputValue(''); // Clear input only if it was from the text field
 
+    // App.tsx's onQuery will setAppIsLoading and setAppLoadingMessage
     try {
-      const aiResponse = await onQuery(currentInput); // aiResponse is AiServiceResponse
+      const aiResponse = await onQuery(currentInput);
       let processedText = aiResponse.mainText;
       let suggestsSearch = false;
 
@@ -203,21 +205,21 @@ export const QAChat: React.FC<QAChatProps> = ({
         processedText = aiResponse.mainText.substring(INFO_NOT_FOUND_MARKER.length).trim();
         suggestsSearch = true;
       }
-      
+
       handleNewAiResponse({
           mainText: processedText,
           suggestedQuestions: aiResponse.suggestedQuestions,
-          sources: aiResponse.sources // Retain sources if onQuery can return them
+          sources: aiResponse.sources
       }, false);
 
 
       if (suggestsSearch) {
          setMessages(prevMessages => {
             const lastAiMsgIndex = prevMessages.map((m, i) => m.sender === 'ai' ? i : -1).filter(i => i !== -1).pop();
-            if (lastAiMsgIndex !== undefined && lastAiMsgIndex > -1 && prevMessages[lastAiMsgIndex].text === processedText) { 
+            if (lastAiMsgIndex !== undefined && lastAiMsgIndex > -1 && prevMessages[lastAiMsgIndex].text === processedText) {
                 const updatedMessages = [...prevMessages];
                 updatedMessages[lastAiMsgIndex] = {
-                    ...prevMessages[lastAiMsgIndex], 
+                    ...prevMessages[lastAiMsgIndex],
                     suggestsInternetSearch: true,
                     relatedUserQuestion: currentInput
                 };
@@ -226,14 +228,46 @@ export const QAChat: React.FC<QAChatProps> = ({
             return prevMessages;
          });
       }
-
-
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       setAppError(`Gagal mendapatkan jawaban dari AI (konteks): ${errorMessage}`);
       addMessageToList('ai', `Maaf, terjadi kesalahan saat mencoba mendapatkan jawaban dari konteks: ${errorMessage}`);
     }
+    // App.tsx's onQuery will manage global loading state
   };
+
+  const handleSuggestedContextQuery = async (question: string) => {
+    setAppError(null);
+    // addMessageToList('user', question); // User message is added by the button's onClick
+
+    setAppIsLoading(true); // Global loading managed by App.tsx, but good to set here for immediate feedback
+    setAppLoadingMessage(`Mencari jawaban dari ${getContextName()}...`);
+
+    try {
+      const aiResponse = await onQuery(question);
+
+      let processedText = aiResponse.mainText;
+      if (aiResponse.mainText.startsWith(INFO_NOT_FOUND_MARKER)) {
+        processedText = aiResponse.mainText.substring(INFO_NOT_FOUND_MARKER.length).trim();
+        // For tabular-data-only suggestions, we don't want to offer internet search
+        // if AI says "not found". The answer is simply "not found in data".
+      }
+
+      handleNewAiResponse({
+          mainText: processedText,
+          suggestedQuestions: aiResponse.suggestedQuestions, // These should also be data-constrained
+          sources: aiResponse.sources
+      }, false); // isInternetSearch = false
+
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setAppError(`Gagal mendapatkan jawaban dari konteks untuk saran: ${errorMessage}`);
+      addMessageToList('ai', `Maaf, terjadi kesalahan saat mencoba mendapatkan jawaban dari konteks untuk saran ini: ${errorMessage}`);
+    } finally {
+      setAppIsLoading(false); // Reset global loading
+    }
+  };
+
 
   const handleGeneralInternetSearch = async (query: string) => {
     try {
@@ -244,7 +278,7 @@ export const QAChat: React.FC<QAChatProps> = ({
             suggestedQuestions: suggestedQuestions
         }, true);
     } catch (e) {
-        throw e; // Re-throw to be caught by the caller
+        throw e;
     }
   };
 
@@ -260,8 +294,7 @@ export const QAChat: React.FC<QAChatProps> = ({
                 const match = line.match(/^(\s*\*?\s*\*\*Tautan Asli:\*\*\s*\[)(.*?)(\]\s*)$/);
                 if (match && currentSourceIndex < sources.length) {
                     const sourceToUse = sources[currentSourceIndex];
-                    // Use placeholder from AI, which client should replace
-                    const placeholderTitle = match[2]; // This is what AI generated as "AI akan menuliskan judul..."
+                    const placeholderTitle = match[2];
                     const newLine = `${match[1]}${sourceToUse.title.replace(/\[|\]/g, '')}${match[3]}(${sourceToUse.uri})`;
                     currentSourceIndex++;
                     return newLine;
@@ -275,7 +308,7 @@ export const QAChat: React.FC<QAChatProps> = ({
             suggestedQuestions: suggestedQuestions
         }, true);
     } catch (e) {
-        throw e; // Re-throw to be caught by the caller
+        throw e;
     }
   };
 
@@ -284,11 +317,11 @@ export const QAChat: React.FC<QAChatProps> = ({
     const query = questionFromButton || inputValue;
     if (query.trim() === '') return;
     setAppError(null);
-    setIsProcessingAction(true);
-    setAppIsLoading(true);
+    setIsProcessingAction(true); // Local loading for this action
+    setAppIsLoading(true); // Also set global loading as it's an AI call
     setAppLoadingMessage(`Mencari di internet: "${query.substring(0,30)}..."`);
 
-    if (!questionFromButton) { // Only add user message if it's a new input, not from a suggestion button
+    if (!questionFromButton) {
         addMessageToList('user', query);
         setInputValue('');
     }
@@ -320,17 +353,16 @@ export const QAChat: React.FC<QAChatProps> = ({
 
     try {
       const simplifiedResponse = await simplifyText(textToSimplify);
-      
+
       setMessages(prev => prev.map(msg => msg.id === messageId ? {...msg, isSimplifiable: false} : msg));
-      handleNewAiResponse({
+      handleNewAiResponse({ // This will add new AI messages for simplified text and its suggestions
           mainText: simplifiedResponse.mainText,
           suggestedQuestions: simplifiedResponse.suggestedQuestions
       }, false);
-      
-      // Add original text to the newly created simplified message if needed for context
+
+      // Update the last added AI message to link it to the original text
       setMessages(prevMessages => {
           const lastAiMsgIndex = prevMessages.map((m,i) => m.sender === 'ai' ? i : -1).filter(i => i !== -1).pop();
-           // Make sure we're updating the correct, newly added simplified message
           if (lastAiMsgIndex !== undefined && lastAiMsgIndex > -1 && prevMessages[lastAiMsgIndex].text === simplifiedResponse.mainText) {
                 const updatedMessages = [...prevMessages];
                 updatedMessages[lastAiMsgIndex] = {
@@ -355,6 +387,7 @@ export const QAChat: React.FC<QAChatProps> = ({
   const handleFallbackInternetSearch = async (messageId: string, originalQuestion: string) => {
     if (!originalQuestion) return;
     setMessages(prev => prev.map(msg => msg.id === messageId ? {...msg, suggestsInternetSearch: false} : msg));
+    // This will add a new user message for originalQuestion if it wasn't a button click
     await handleDirectInternetSearch(originalQuestion);
   };
 
@@ -386,7 +419,7 @@ export const QAChat: React.FC<QAChatProps> = ({
 
 
   const contextButtonText = currentMode === 'dataAnalysis' ? "Tanya Dataset" : "Tanya Dokumen";
-  const canQueryContext = currentMode === 'dataAnalysis' || (currentMode === 'documentQa' && (processedTextContent || documentSummary));
+  const canQueryContext = (currentMode === 'dataAnalysis' && sourceIdentifier) || (currentMode === 'documentQa' && (processedTextContent || documentSummary));
 
 
   return (
@@ -399,7 +432,7 @@ export const QAChat: React.FC<QAChatProps> = ({
         }
       </div>
 
-      {(currentMode === 'documentQa' && (documentSummary || documentSummarySuggestions)) && canQueryContext && (
+      {currentMode === 'documentQa' && (documentSummary || documentSummarySuggestions) && canQueryContext && (
         <div className="px-4 py-3 border-b border-slate-200">
           {documentSummary && (
             <>
@@ -421,7 +454,7 @@ export const QAChat: React.FC<QAChatProps> = ({
                 {documentSummarySuggestions.map((q, i) => (
                     <button
                     key={`summary-sugg-${i}`}
-                    onClick={() => handleDirectInternetSearch(q)}
+                    onClick={() => { addMessageToList('user', q); handleDirectInternetSearch(q);}}
                     className="px-2 py-1 text-xs bg-sky-100 hover:bg-sky-200 text-sky-700 rounded-md transition-colors"
                     disabled={isProcessingAction || contextQueryLoading}
                     >
@@ -433,6 +466,43 @@ export const QAChat: React.FC<QAChatProps> = ({
           )}
         </div>
       )}
+
+      {currentMode === 'dataAnalysis' && (tabularInsights || tabularInsightsSuggestions) && canQueryContext && (
+        <div className="px-4 py-3 border-b border-slate-200">
+          {tabularInsights && (
+            <>
+              <div className="flex items-center mb-2">
+                  <LightBulbSolidIcon className="w-5 h-5 mr-2 text-amber-500" />
+                  <span className="text-sm font-medium text-slate-700">
+                      Wawasan Otomatis ({contextSpecificTitle})
+                  </span>
+              </div>
+              <div className="prose prose-sm sm:prose-base max-w-none bg-slate-50 p-3 rounded-md border border-slate-200 mb-2">
+                <ReactMarkdown components={EnhancedSummaryMarkdownComponents}>{tabularInsights}</ReactMarkdown>
+              </div>
+            </>
+          )}
+          {tabularInsightsSuggestions && tabularInsightsSuggestions.length > 0 && (
+            <div className="mt-2">
+                <h4 className="text-xs font-semibold text-slate-600 mb-1">Saran Pertanyaan (dari Wawasan Data):</h4>
+                <div className="flex flex-wrap gap-1.5">
+                {tabularInsightsSuggestions.map((q, i) => (
+                    <button
+                    key={`tabular-insight-sugg-${i}`}
+                    onClick={() => { addMessageToList('user', q); handleSuggestedContextQuery(q); }}
+                    className="px-2 py-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-md transition-colors"
+                    disabled={isProcessingAction || contextQueryLoading}
+                    title="Tanyakan ini pada dataset Anda"
+                    >
+                    {q}
+                    </button>
+                ))}
+                </div>
+            </div>
+          )}
+        </div>
+      )}
+
 
       <div className="flex-grow flex flex-col overflow-hidden bg-slate-50">
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
@@ -503,7 +573,21 @@ export const QAChat: React.FC<QAChatProps> = ({
                       {msg.suggestedQuestions.map((q, i) => (
                         <button
                           key={`sugg-${msg.id}-${i}`}
-                          onClick={() => handleDirectInternetSearch(q)}
+                          onClick={() => {
+                            addMessageToList('user', q);
+                            // Determine if this suggestion was from tabular data or general.
+                            // This is tricky here, as suggestedQuestions is generic.
+                            // Assuming suggestions FROM AI responses (not initial doc/tabular summary) are general.
+                            if (msg.originalTextForSimplification || msg.isInternetSearchResult || currentMode === 'documentQa') {
+                                handleDirectInternetSearch(q);
+                            } else if (currentMode === 'dataAnalysis' && !msg.isInternetSearchResult) {
+                                // This path is for suggestions coming AFTER a data query.
+                                // These suggestions should also be data-bound if AI is prompted correctly.
+                                handleSuggestedContextQuery(q);
+                            } else {
+                                handleDirectInternetSearch(q); // Default to internet search for safety
+                            }
+                          }}
                           className="px-2 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                           disabled={isProcessingAction || contextQueryLoading}
                         >
@@ -565,7 +649,11 @@ export const QAChat: React.FC<QAChatProps> = ({
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={(e) => {
                     if (e.key === 'Enter' && !contextQueryLoading && !isProcessingAction && inputValue.trim() !== '') {
-                        handleDirectInternetSearch(); 
+                       // Default action for Enter key is now ambiguous. User should use buttons.
+                       // For clarity, we can make Enter trigger context query if context is available and input is not empty.
+                       // Or, make it trigger internet search. Let's default to internet search if input is general.
+                       // If user wants context, they use the button.
+                        handleDirectInternetSearch();
                     }
                 }}
                 placeholder={placeholderText}
@@ -580,11 +668,11 @@ export const QAChat: React.FC<QAChatProps> = ({
           <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0">
              <button
                 type="button"
-                onClick={handleQueryContext}
+                onClick={() => handleQueryContext()}
                 disabled={contextQueryLoading || isProcessingAction || inputValue.trim() === '' || !canQueryContext}
                 className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-500 disabled:bg-slate-50 transition-colors"
                 aria-label={`Tanya konteks: ${contextButtonText}`}
-                title={!canQueryContext ? "Tidak ada konteks (data/dokumen) yang dimuat untuk ditanyakan." : `Tanya ${contextButtonText}`}
+                title={!canQueryContext ? "Tidak ada konteks (data/dokumen) yang dimuat untuk ditanyakan." : `Tanya ${contextButtonText} dengan pertanyaan dari input di atas`}
               >
                 <ServerStackIcon className="h-5 w-5 mr-1.5" />
                 {contextButtonText}
@@ -594,10 +682,10 @@ export const QAChat: React.FC<QAChatProps> = ({
                 onClick={() => handleDirectInternetSearch()}
                 disabled={contextQueryLoading || isProcessingAction || inputValue.trim() === ''}
                 className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                aria-label="Cari jawaban di Internet"
-                title="Cari jawaban di Internet"
+                aria-label="Cari jawaban di Internet dengan pertanyaan dari input di atas"
+                title="Cari jawaban di Internet dengan pertanyaan dari input di atas"
               >
-                {(isProcessingAction && !contextQueryLoading && messages[messages.length-1]?.text === inputValue) ? (
+                {(isProcessingAction && !contextQueryLoading && messages[messages.length-1]?.sender === 'user' && messages[messages.length-1]?.text === inputValue) ? (
                    <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

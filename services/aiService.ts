@@ -196,6 +196,16 @@ Objek JSON Hasil Interpretasi:
 export const generateInsights = async (data: ParsedCsvData): Promise<AiServiceResponse> => {
   const currentAi = getAiInstance();
   const dataSummary = formatDataSummaryForPrompt(data);
+  const tabularSuggestionsInstruction = `
+---
+Setelah teks utama wawasan Anda, sertakan blok ${SUGGESTIONS_START_MARKER}...${SUGGESTIONS_END_MARKER} yang berisi 2-4 saran pertanyaan lanjutan.
+PENTING: Setiap saran pertanyaan HARUS dapat dijawab HANYA dari ringkasan dataset yang telah disediakan di atas (termasuk statistik kolom yang ada). Jangan menyarankan pertanyaan yang memerlukan pengetahuan eksternal, informasi di luar dataset (seperti tren pasar, penyebab eksternal), atau pencarian internet. Pertanyaan harus bersifat analitis terhadap data yang ada.
+Setiap saran harus dalam baris baru dan berupa TEKS BIASA tanpa nomor, poin, atau format tebal. Pastikan saran-saran tersebut singkat dan langsung ke intinya.
+Contoh pertanyaan yang VALID (jika data mendukung): "Berapa rata-rata kolom 'Usia'?", "Manakah kategori 'Produk' yang paling umum?", "Bandingkan penjualan antara 'Region A' dan 'Region B' jika data tersebut ada.", "Apakah ada korelasi antara 'Pendapatan' dan 'Durasi Kunjungan'?".
+Contoh pertanyaan yang TIDAK VALID (karena memerlukan info eksternal atau analisis sangat kompleks): "Bagaimana tren pasar untuk produk dalam kategori X?", "Apa penyebab utama penurunan penjualan di kuartal terakhir?", "Prediksikan penjualan untuk tahun depan.".
+---
+`;
+
   const prompt = `
 Analisis ringkasan dataset berikut. Berikan 3-5 wawasan, pola, atau anomali penting dari data ini.
 Gunakan bahasa yang sederhana dan mudah dipahami, seolah-olah Anda menjelaskan kepada seseorang yang tidak terbiasa dengan analisis data.
@@ -207,7 +217,7 @@ Ringkasan Dataset:
 ${dataSummary}
 
 Wawasan (dalam bahasa yang sederhana):
-${SUGGESTIONS_PROMPT_BLOCK}
+${tabularSuggestionsInstruction}
 `;
 
   try {
@@ -218,7 +228,7 @@ ${SUGGESTIONS_PROMPT_BLOCK}
     return parseAiResponseText(response.text);
   } catch (error) {
     console.error("Kesalahan API AI (generateInsights):", error);
-    throw new Error(enhanceErrorMessage(error));
+    return { mainText: `Gagal menghasilkan wawasan: ${enhanceErrorMessage(error)}`, suggestedQuestions: undefined };
   }
 };
 

@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { InputSection } from './components/InputSection';
 import { DataOverview } from './components/DataOverview';
 import { DataVisualizer } from './components/DataVisualizer';
-import { InsightsGenerator } from './components/InsightsGenerator';
+// import { InsightsGenerator } from './components/InsightsGenerator'; // Removed
 import { QAChat } from './components/QAChat';
 import { DocumentEvaluator } from './components/DocumentEvaluator';
 import { GuidePage } from './components/GuidePage';
@@ -11,30 +11,31 @@ import { FirstVisitModal } from './components/FirstVisitModal';
 import { GuideBanner } from './components/GuideBanner';
 import { ParsedCsvData, ChatMessage } from './types';
 import { analyzeColumns, SupportedCalculation as SupportedCalculationType } from './services/dataAnalysisService';
-import { 
-  generateInsights, 
-  answerQuestion, 
-  summarizeContent, 
-  answerQuestionFromContent, 
-  interpretUserCalculationRequest, 
+import {
+  generateInsights as generateInsightsFromService, // Aliased for clarity
+  answerQuestion,
+  summarizeContent,
+  answerQuestionFromContent,
+  interpretUserCalculationRequest,
   evaluateDocumentWithReferences,
-  AiServiceResponse // Import AiServiceResponse if it's an exported type
-} from './services/aiService'; 
+  AiServiceResponse
+} from './services/aiService';
 import { ToastDisplay, ToastConfig } from './components/common/ToastDisplay';
 
 import {
   ArrowDownTrayIcon,
   TableCellsIcon,
   ChartBarIcon,
-  LightBulbIcon,
+  // LightBulbIcon, // Removed as dedicated section is gone
   ChatBubbleLeftEllipsisIcon,
   ExclamationTriangleIcon,
   XCircleIcon,
   ClipboardDocumentCheckIcon,
   QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline';
+import { LightBulbIcon } from '@heroicons/react/24/solid'; // For QAChat insights icon
 
-type ActiveSection = 'input' | 'overview' | 'visualize' | 'insights' | 'qa' | 'evaluate';
+type ActiveSection = 'input' | 'overview' | 'visualize' /*| 'insights'*/ | 'qa' | 'evaluate'; // 'insights' removed
 export type AppMode = 'dataAnalysis' | 'documentQa';
 export type ActiveInputType = 'tabular' | 'document' | 'directText';
 type CurrentView = 'app' | 'guide';
@@ -101,6 +102,9 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<CurrentView>('app');
   const [showFirstVisitModal, setShowFirstVisitModal] = useState<boolean>(false);
 
+  const [tabularInsights, setTabularInsights] = useState<string | null>(null);
+  const [tabularInsightsSuggestions, setTabularInsightsSuggestions] = useState<string[] | undefined>(undefined);
+
 
   useEffect(() => {
     const hasVisited = localStorage.getItem(LOCAL_STORAGE_KEYS.HAS_VISITED_BEFORE);
@@ -135,6 +139,8 @@ const App: React.FC = () => {
     setDocumentSummarySuggestions(undefined);
     setDocumentEvaluation(null); 
     setEvaluationSuggestions(undefined);
+    setTabularInsights(null);
+    setTabularInsightsSuggestions(undefined);
     setActiveInputSourceIdentifier(undefined);
     setError(null);
     if (!keepCurrentMode) {
@@ -148,9 +154,10 @@ const App: React.FC = () => {
     setLoadingMessage("Menganalisis kolom data tabular...");
     setCurrentMode('dataAnalysis');
     setActiveInputSourceIdentifier(file.name);
+    let tempParsedData: ParsedCsvData | null = null;
     try {
       const columnInfos = analyzeColumns(parsed.rows, parsed.headers);
-      const fullParsedData: ParsedCsvData = {
+      tempParsedData = {
         ...parsed,
         columnInfos,
         rowCount: parsed.rows.length,
@@ -158,17 +165,34 @@ const App: React.FC = () => {
         sampleRows: parsed.rows.slice(0, 10),
         fileName: file.name,
       };
-      setParsedData(fullParsedData);
-      setActiveSection('overview');
+      setParsedData(tempParsedData);
+
+      setLoadingMessage("Menghasilkan wawasan AI untuk data tabular...");
+      const insightsResponse = await generateInsightsFromService(tempParsedData);
+      
+      if (insightsResponse.mainText.startsWith("Gagal") || insightsResponse.mainText.startsWith("Tidak ada data tabular")) {
+           setError(insightsResponse.mainText); // Or handle more gracefully
+           setTabularInsights(null);
+           setTabularInsightsSuggestions(undefined);
+      } else {
+          setTabularInsights(insightsResponse.mainText);
+          setTabularInsightsSuggestions(insightsResponse.suggestedQuestions);
+      }
+      setActiveSection('qa'); // Navigate to QA after insights are attempted
+
     } catch (e) {
-      console.error("Error analyzing columns:", e);
-      setError(`Gagal menganalisis kolom: ${e instanceof Error ? e.message : String(e)}`);
+      console.error("Error processing tabular file or generating insights:", e);
+      setError(`Gagal memproses file atau menghasilkan wawasan: ${e instanceof Error ? e.message : String(e)}`);
       setActiveInputSourceIdentifier(undefined);
-      setActiveSection('input');
+      if (tempParsedData) { // If data was parsed but insights failed, still go to QA
+          setActiveSection('qa');
+      } else { // If parsing failed
+          setActiveSection('input');
+      }
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [resetAppStateForNewInput]);
   
   const handleDocumentOrTextProcessed = useCallback(async (text: string, sourceName: string, navigateToEvaluation: boolean = false) => {
     resetAppStateForNewInput(true); 
@@ -191,27 +215,35 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [resetAppStateForNewInput]);
 
-  const handleGenerateInsights = useCallback(async (): Promise<AiServiceResponse> => {
-    if (!parsedData || currentMode !== 'dataAnalysis') {
-      return { mainText: "Tidak ada data tabular untuk menghasilkan wawasan.", suggestedQuestions: undefined };
-    }
-    setIsLoading(true); 
-    setLoadingMessage("Menghasilkan wawasan AI...");
-    setError(null);
-    try {
-      const insightsResponse = await generateInsights(parsedData); 
-      return insightsResponse;
-    } catch (e) {
-      console.error("Error generating insights:", e);
-      const errorMessage = `Gagal menghasilkan wawasan: ${e instanceof Error ? e.message : String(e)}`;
-      setError(errorMessage);
-      return { mainText: errorMessage, suggestedQuestions: undefined };
-    } finally {
-      setIsLoading(false);
-    }
-  }, [parsedData, currentMode]);
+  // This function is no longer primary for initial insights, but can be kept for potential future manual trigger
+  // For now, it's not used directly in the main flow for tabular data.
+  // const handleGenerateManualInsights = useCallback(async (): Promise<AiServiceResponse> => {
+  //   if (!parsedData || currentMode !== 'dataAnalysis') {
+  //     return { mainText: "Tidak ada data tabular untuk menghasilkan wawasan.", suggestedQuestions: undefined };
+  //   }
+  //   setIsLoading(true); 
+  //   setLoadingMessage("Menghasilkan wawasan AI...");
+  //   setError(null);
+  //   try {
+  //     const insightsResponse = await generateInsightsFromService(parsedData); 
+  //     // This would update state or be returned to a component if used manually
+  //     setTabularInsights(insightsResponse.mainText); 
+  //     setTabularInsightsSuggestions(insightsResponse.suggestedQuestions);
+  //     return insightsResponse;
+  //   } catch (e) {
+  //     console.error("Error generating insights:", e);
+  //     const errorMessage = `Gagal menghasilkan wawasan: ${e instanceof Error ? e.message : String(e)}`;
+  //     setError(errorMessage);
+  //     setTabularInsights(errorMessage);
+  //     setTabularInsightsSuggestions(undefined);
+  //     return { mainText: errorMessage, suggestedQuestions: undefined };
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // }, [parsedData, currentMode]);
+
 
   const handleQuery = useCallback(async (question: string): Promise<AiServiceResponse> => {
     setIsLoading(true); 
@@ -302,7 +334,6 @@ const App: React.FC = () => {
       const response = await evaluateDocumentWithReferences(processedTextContent);
       setDocumentEvaluation(response.mainText); 
       setEvaluationSuggestions(response.suggestedQuestions);
-      // Note: sources are now part of response.mainText from aiService. If separate handling is needed, adjust aiService or here.
       return response; 
     } catch (e) {
       console.error("Error evaluating document:", e);
@@ -351,12 +382,12 @@ const App: React.FC = () => {
         return currentMode === 'dataAnalysis' && parsedData ? <DataOverview data={parsedData} /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
       case 'visualize':
         return currentMode === 'dataAnalysis' && parsedData ? <DataVisualizer data={parsedData} /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
-      case 'insights':
-        return currentMode === 'dataAnalysis' && parsedData ? 
-               <InsightsGenerator 
-                  onGenerateInsights={handleGenerateInsights} 
-                  isLoading={isLoading} 
-                /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
+      // case 'insights': // Removed
+      //   return currentMode === 'dataAnalysis' && parsedData ? 
+      //          <InsightsGenerator 
+      //             onGenerateInsights={handleGenerateManualInsights} // If manual trigger was kept
+      //             isLoading={isLoading} 
+      //           /> : commonDisabledMessage("Silakan input data tabular terlebih dahulu untuk mengakses bagian ini.");
       case 'qa':
         return (currentMode === 'dataAnalysis' && parsedData) || (currentMode === 'documentQa' && processedTextContent) ? 
                <QAChat 
@@ -365,6 +396,8 @@ const App: React.FC = () => {
                   currentMode={currentMode}
                   documentSummary={documentSummary}
                   documentSummarySuggestions={documentSummarySuggestions}
+                  tabularInsights={tabularInsights}
+                  tabularInsightsSuggestions={tabularInsightsSuggestions}
                   processedTextContent={processedTextContent}
                   sourceIdentifier={activeInputSourceIdentifier}
                   setAppIsLoading={setIsLoading} 
@@ -411,7 +444,7 @@ const App: React.FC = () => {
       { key: 'input', label: "Input", icon: ArrowDownTrayIcon },
       { key: 'overview', label: "Ringkasan", icon: TableCellsIcon, requiredMode: 'dataAnalysis' },
       { key: 'visualize', label: "Visualisasi", icon: ChartBarIcon, requiredMode: 'dataAnalysis' },
-      { key: 'insights', label: "Wawasan", icon: LightBulbIcon, requiredMode: 'dataAnalysis' },
+      // { key: 'insights', label: "Wawasan", icon: LightBulbIcon, requiredMode: 'dataAnalysis' }, // Removed
       { key: 'qa', label: "Tanya Jawab", icon: ChatBubbleLeftEllipsisIcon },
       { key: 'evaluate', label: "Evaluasi", icon: ClipboardDocumentCheckIcon }, 
     ];
@@ -428,11 +461,8 @@ const App: React.FC = () => {
               else if (currentMode === 'documentQa' && !processedTextContent && item.requiredMode !== 'dataAnalysis') isDisabled = true; 
           }
       }
-      // Special case for evaluate: needs processedTextContent or ability to upload
       if (item.key === 'evaluate' && (!processedTextContent && currentMode !== 'documentQa')) {
-          // It's not strictly disabled as you can upload from there,
-          // but navigation might be restricted if nothing is loaded.
-          // The component itself handles the "no content" state.
+        // Evaluate can now be entered without pre-loaded content, it has its own uploader.
       }
       return { ...item, disabled: isDisabled };
     });
@@ -538,7 +568,7 @@ const App: React.FC = () => {
                 key={item.key}
                 onClick={() => handleMenuClick(item.key)}
                 disabled={item.disabled} 
-                className={`flex flex-col items-center justify-center p-2 rounded-md w-1/5 text-xs sm:text-sm transition-colors duration-150
+                className={`flex flex-col items-center justify-center p-2 rounded-md w-1/${navItems.length} text-xs sm:text-sm transition-colors duration-150
                   ${activeSection === item.key 
                     ? 'text-blue-600' 
                     : item.disabled ? 'text-slate-400 cursor-not-allowed' : 'text-slate-600 hover:text-blue-500'}

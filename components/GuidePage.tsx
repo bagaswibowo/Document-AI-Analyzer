@@ -18,8 +18,7 @@ Aplikasi ini dirancang untuk membantu Anda menggali wawasan dari data, memahami 
     *   **Input:** Untuk memulai dengan mengunggah file atau memasukkan teks.
     *   **Ringkasan:** (Khusus data tabular) Menampilkan statistik dan sampel data Anda.
     *   **Visualisasi:** (Khusus data tabular) Membuat grafik dari data Anda.
-    *   **Wawasan:** (Khusus data tabular) Mendapatkan analisis AI tentang data Anda.
-    *   **Tanya Jawab (QA):** Berinteraksi dengan AI, baik tentang data/dokumen yang dimuat maupun pencarian internet.
+    *   **Tanya Jawab (QA):** Berinteraksi dengan AI. Untuk data tabular, **wawasan otomatis akan muncul di sini**. Untuk dokumen/teks, ringkasan otomatis akan muncul di sini. Fitur pencarian internet juga ada di sini.
     *   **Evaluasi:** (Khusus dokumen/teks) Menganalisis kualitas tulisan dan mendapatkan referensi.
     *   *Catatan: Beberapa tombol menu mungkin tidak aktif jika belum ada data atau konten yang sesuai.*
 *   **Banner Panduan (di bawah Header):** Jika Anda baru pertama kali, akan ada banner yang mengarahkan ke panduan ini.
@@ -61,13 +60,14 @@ Ini adalah mode default saat Anda pertama kali membuka tab Input.
 4.  **Batas Ukuran:** Maksimum sekitar 25 MB.
 5.  **Setelah Unggah & Proses:**
     *   Aplikasi akan menganalisis struktur data Anda (kolom, tipe data, statistik dasar).
-    *   Anda akan otomatis diarahkan ke tab **Ringkasan**.
-    *   Dari sini, Anda dapat menggunakan tab **Visualisasi**, **Wawasan**, dan **Tanya Jawab (QA)** yang spesifik untuk data tabular.
+    *   Setelah analisis, **wawasan otomatis akan dibuat oleh AI**.
+    *   Anda akan otomatis diarahkan ke tab **Tanya Jawab (QA)**, di mana wawasan otomatis tersebut akan ditampilkan di bagian atas.
+    *   Dari sini, Anda dapat menggunakan tab **Ringkasan** dan **Visualisasi** jika diperlukan, dan melanjutkan interaksi di tab **Tanya Jawab (QA)**.
 
 ### C. Fitur untuk Dokumen dan Teks Langsung
 
 #### C.1. Tab Tanya Jawab (QA) - Mode Dokumen/Teks
-*   **Konteks:** Setelah memproses dokumen atau teks dari tab Input, konten tersebut menjadi konteks aktif. Ringkasan otomatis (jika ada) akan ditampilkan.
+*   **Konteks:** Setelah memproses dokumen atau teks dari tab Input, konten tersebut menjadi konteks aktif. Ringkasan otomatis (jika ada) akan ditampilkan di bagian atas.
 *   **Bertanya tentang Konten:** Gunakan tombol **"Tanya Dokumen"** (atau "Tanya Teks") di bawah kolom input chat untuk pertanyaan spesifik mengenai isi dokumen/teks yang aktif. Contoh: "Apa poin utama teks ini?".
 *   **Pencarian Internet:** Jika Anda mengetik pertanyaan di kolom input utama dan menekan Enter atau tombol **"Cari di Internet"**, AI akan mencari jawaban dari web (lihat bagian E).
 *   **Info Tidak Ditemukan:** Jika AI tidak menemukan jawaban dalam dokumen/teks untuk pertanyaan kontekstual, ia akan memberitahu Anda dan mungkin menyarankan untuk mencoba pencarian internet (akan ada tombol "Cari di Internet" di pesan AI tersebut).
@@ -102,12 +102,8 @@ Ini adalah mode default saat Anda pertama kali membuka tab Input.
     *   Pilih kolom numerik untuk Histogram dan sesuaikan jumlah *bins* (kelompok data).
 *   **Interaktif:** Grafik akan otomatis diperbarui saat Anda mengubah pilihan.
 
-#### D.3. Tab Wawasan
-*   Klik tombol **"Hasilkan Wawasan"**.
-*   AI akan menganalisis data Anda berdasarkan ringkasan statistik dan memberikan temuan-temuan menarik, pola, atau anomali dalam format naratif yang mudah dibaca.
-*   **Saran Pertanyaan Lanjutan:** Di bawah hasil wawasan, akan ada tombol-tombol saran pertanyaan (lihat bagian F.1).
-
-#### D.4. Tab Tanya Jawab (QA) - Mode Data Tabular
+#### D.3. Tab Tanya Jawab (QA) - Mode Data Tabular (Termasuk Wawasan Otomatis)
+*   **Wawasan Otomatis:** Setelah Anda mengunggah data tabular dan proses analisis selesai, **wawasan otomatis dari AI** akan langsung ditampilkan di bagian atas halaman Tanya Jawab. Ini memberikan temuan menarik, pola, atau anomali dari data Anda.
 *   **Konteks:** Dataset yang Anda unggah menjadi konteks aktif.
 *   **Bertanya tentang Data:** Gunakan tombol **"Tanya Dataset"** di bawah kolom input chat untuk pertanyaan spesifik tentang dataset. Contoh: "Berapa rata-rata kolom 'Penjualan'?", "Produk mana yang paling banyak terjual?".
 *   **Perhitungan Dasar:** Sistem akan mencoba melakukan perhitungan statistik dasar (SUM, AVERAGE, dll.) jika diminta.
