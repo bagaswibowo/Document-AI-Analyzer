@@ -8,152 +8,80 @@ interface GuidePageProps {
 }
 
 const guideContent = `
-## Selamat Datang di Penganalisis & Evaluator Dokumen AI!
-Aplikasi ini dirancang untuk membantu Anda menggali wawasan dari data, memahami dokumen, dan meningkatkan kualitas tulisan dengan bantuan AI.
+## Panduan Singkat: Penganalisis & Evaluator Dokumen AI
+Aplikasi ini membantu Anda menganalisis data, memahami dokumen, dan meningkatkan tulisan dengan AI.
 
-### A. Navigasi Dasar Aplikasi
-*   **Header (Bagian Atas):** Menampilkan judul aplikasi dan tombol **Panduan Penggunaan** (ikon tanda tanya) untuk kembali ke halaman ini.
-*   **Area Konten Utama (Tengah):** Tempat semua interaksi dan tampilan fitur berlangsung.
-*   **Menu Navigasi (Bagian Bawah Tetap):** Ikon-ikon ini adalah cara utama Anda berpindah antar bagian utama aplikasi:
-    *   **Input:** Untuk memulai dengan mengunggah file atau memasukkan teks.
-    *   **Ringkasan:** (Khusus data tabular) Menampilkan statistik dan sampel data Anda.
-    *   **Visualisasi:** (Khusus data tabular) Membuat grafik dari data Anda.
-    *   **Tanya Jawab (QA):** Berinteraksi dengan AI. Untuk data tabular, **wawasan otomatis akan muncul di sini**. Untuk dokumen/teks, ringkasan otomatis akan muncul di sini. Fitur pencarian internet juga ada di sini.
-    *   **Evaluasi:** (Khusus dokumen/teks) Menganalisis kualitas tulisan dan mendapatkan referensi.
-    *   *Catatan: Beberapa tombol menu mungkin tidak aktif jika belum ada data atau konten yang sesuai.*
-*   **Banner Panduan (di bawah Header):** Jika Anda baru pertama kali, akan ada banner yang mengarahkan ke panduan ini.
-*   **Modal Selamat Datang (saat kunjungan pertama):** Menawarkan opsi untuk langsung melihat panduan atau melanjutkan ke aplikasi.
+### A. Navigasi Utama
+*   **Header:** Judul aplikasi & tombol **Panduan** (ikon ?).
+*   **Konten Utama:** Area interaksi utama.
+*   **Menu Bawah:** Pindah antar bagian: Input, Ringkasan (data tabular), Visualisasi (data tabular), Tanya Jawab (QA), Evaluasi (dokumen/teks).
+    *   *Beberapa menu mungkin nonaktif jika belum ada data yang sesuai.*
 
 ### B. Memulai: Tab "Input"
-Tab **Input** adalah titik awal Anda. Aplikasi memiliki dua mode utama yang bisa dipilih dari sini:
+Pilih mode input Anda:
 
-#### B.1. Mode Input: Dokumen atau Teks Langsung
-Ini adalah mode default saat Anda pertama kali membuka tab Input.
+#### B.1. Input Dokumen/Teks Langsung
+*   **Unggah Dokumen (PDF, DOCX, DOC, TXT):**
+    1.  Di tab "Dokumen", unggah file (Maks: 25 MB).
+    2.  *Catatan untuk \`.doc\`: Hasil mungkin kurang optimal. Gunakan \`.docx\` atau \`.pdf\` jika bisa.*
+    3.  **Setelah Proses:** Anda akan diarahkan ke tab **QA**. Ringkasan & saran pertanyaan dari AI akan muncul di sana. Tab **Evaluasi** juga aktif.
+*   **Teks Langsung:**
+    1.  Di tab "Teks Langsung", ketik/tempel teks (Maks: 20.000 kata).
+    2.  **Setelah Proses:** Sama seperti unggah dokumen, Anda ke tab **QA** dengan ringkasan & saran dari AI. Tab **Evaluasi** aktif.
 
-*   **Mengunggah File Dokumen (PDF, DOCX, DOC, TXT):**
-    1.  Pilih tab "Dokumen" (biasanya sudah aktif).
-    2.  Gunakan area "Unggah file atau seret dan lepas" untuk memilih file dari komputer Anda.
-    3.  **Format yang Didukung:** \`.pdf\`, \`.docx\`, \`.doc\`, \`.txt\`.
-    4.  **Batas Ukuran:** Maksimum sekitar 25 MB.
-    5.  **Catatan untuk \`.doc\`:** File Word versi lama (\`.doc\`) mungkin memiliki keterbatasan ekstraksi. Disarankan menggunakan \`.docx\` atau \`.pdf\` untuk hasil terbaik.
-    6.  **Setelah Unggah & Proses:**
-        *   Teks dari dokumen Anda akan diekstrak.
-        *   Anda akan otomatis diarahkan ke tab **Tanya Jawab (QA)**.
-        *   Ringkasan singkat dari dokumen (jika berhasil dibuat) akan muncul di bagian atas area chat QA.
-        *   Anda dapat langsung bertanya tentang isi dokumen tersebut atau menggunakan fitur pencarian internet.
-        *   Anda juga dapat langsung ke tab **Evaluasi** dari menu navigasi bawah untuk analisis lebih lanjut.
+#### B.2. Input Data Tabular (CSV, TSV, Excel)
+1.  Di tab "Data Tabular", unggah file (Maks: 25 MB).
+2.  **Setelah Proses:** Analisis data & wawasan otomatis dari AI akan muncul di tab **QA**, beserta saran pertanyaan. Tab **Ringkasan** & **Visualisasi** juga aktif.
 
-*   **Memasukkan Teks Langsung:**
-    1.  Pilih tab "Teks Langsung".
-    2.  Ketik atau tempel teks Anda ke dalam area yang tersedia.
-    3.  **Batas Kata:** Maksimum sekitar 20.000 kata.
-    4.  **Setelah Input & Proses:**
-        *   Sama seperti unggah dokumen, Anda akan diarahkan ke tab **Tanya Jawab (QA)**.
-        *   Ringkasan singkat dari teks (jika berhasil dibuat) akan muncul di area chat QA.
-        *   Anda bisa bertanya tentang teks tersebut atau melakukan pencarian internet.
-        *   Tab **Evaluasi** juga tersedia untuk analisis teks ini.
+### C. Fitur Dokumen & Teks Langsung
 
-#### B.2. Mode Input: Data Tabular
-1.  Pilih tab "Data Tabular".
-2.  Gunakan area unggah untuk memilih file data dari komputer Anda.
-3.  **Format yang Didukung:** \`.csv\`, \`.tsv\`, \`.xls\`, \`.xlsx\`.
-4.  **Batas Ukuran:** Maksimum sekitar 25 MB.
-5.  **Setelah Unggah & Proses:**
-    *   Aplikasi akan menganalisis struktur data Anda (kolom, tipe data, statistik dasar).
-    *   Setelah analisis, **wawasan otomatis akan dibuat oleh AI**.
-    *   Anda akan otomatis diarahkan ke tab **Tanya Jawab (QA)**, di mana wawasan otomatis tersebut akan ditampilkan di bagian atas.
-    *   Dari sini, Anda dapat menggunakan tab **Ringkasan** dan **Visualisasi** jika diperlukan, dan melanjutkan interaksi di tab **Tanya Jawab (QA)**.
-
-### C. Fitur untuk Dokumen dan Teks Langsung
-
-#### C.1. Tab Tanya Jawab (QA) - Mode Dokumen/Teks
-*   **Konteks:** Setelah memproses dokumen atau teks dari tab Input, konten tersebut menjadi konteks aktif. Ringkasan otomatis (jika ada) akan ditampilkan di bagian atas.
-*   **Bertanya tentang Konten:** Gunakan tombol **"Tanya Dokumen"** (atau "Tanya Teks") di bawah kolom input chat untuk pertanyaan spesifik mengenai isi dokumen/teks yang aktif. Contoh: "Apa poin utama teks ini?".
-*   **Pencarian Internet:** Jika Anda mengetik pertanyaan di kolom input utama dan menekan Enter atau tombol **"Cari di Internet"**, AI akan mencari jawaban dari web (lihat bagian E).
-*   **Info Tidak Ditemukan:** Jika AI tidak menemukan jawaban dalam dokumen/teks untuk pertanyaan kontekstual, ia akan memberitahu Anda dan mungkin menyarankan untuk mencoba pencarian internet (akan ada tombol "Cari di Internet" di pesan AI tersebut).
+#### C.1. Tab Tanya Jawab (QA)
+*   **Konteks Aktif:** Dokumen/teks yang diproses. Ringkasan & saran pertanyaan dari AI muncul di atas area chat.
+*   **Interaksi:**
+    *   **Tanya Dokumen/Teks:** Tombol untuk pertanyaan spesifik ke konten aktif.
+    *   **Cari di Internet:** Kolom input utama & tombol untuk pencarian web.
+    *   Jika info tak ada di konteks, AI akan menyarankan pencarian web.
 
 #### C.2. Tab Evaluasi
-*   **Akses:** Bisa diakses setelah memproses dokumen/teks dari Input, atau Anda bisa mengunggah file baru langsung di sini.
-*   **Konten Asli:** Jika ada dokumen/teks yang aktif, pratinjaunya akan ditampilkan.
-*   **Proses Evaluasi:** Klik tombol **"Evaluasi dengan Referensi Internet"**.
-*   **Hasil Evaluasi AI:**
-    1.  **Analisis Kualitas Teks:** Penilaian tentang kejelasan, kelengkapan, potensi akurasi, dan bias.
-    2.  **Saran Perbaikan:** Ide konkret untuk meningkatkan tulisan.
-    3.  **Referensi Internet:** 2-4 tautan sumber dari internet yang relevan dengan topik utama, ditampilkan di akhir hasil evaluasi.
-*   **Saran Pertanyaan Lanjutan:** Di bawah hasil evaluasi, akan ada tombol-tombol saran pertanyaan (lihat bagian F.1).
+*   **Akses:** Setelah memproses dokumen/teks dari Input, atau unggah file baru langsung di sini (Maks: 25 MB, sama seperti input dokumen).
+*   **Proses:** Klik tombol **"Evaluasi dengan Referensi Internet"**.
+*   **Hasil AI:** Analisis kualitas teks, saran perbaikan, & referensi internet terkait.
+*   **Saran Pertanyaan:** Muncul di bawah hasil, mengarah ke QA untuk pencarian web.
 
-### D. Fitur untuk Data Tabular
+### D. Fitur Data Tabular
 
 #### D.1. Tab Ringkasan
-*   **Informasi Umum:** Nama file, jumlah baris, jumlah kolom, dan estimasi ukuran.
-*   **Detail Informasi Kolom:** Tabel yang menampilkan:
-    *   Nama Kolom
-    *   Tipe Data (number, string, boolean, date)
-    *   Jumlah Data Hilang (dan persentasenya)
-    *   Jumlah Nilai Unik
-    *   Statistik (Mean, Median, Modus, Min, Max) - jika relevan untuk tipe datanya.
-*   **Data Sampel:** Tabel yang menampilkan 10 baris pertama dari dataset Anda.
+*   Menampilkan info umum (nama file, jumlah baris & kolom) dan statistik detail per kolom, termasuk sampel data.
 
 #### D.2. Tab Visualisasi
-*   **Jenis Grafik:** Pilih dari berbagai jenis grafik seperti Bar, Line, Area, Pie, Doughnut, Scatter, dan Histogram.
-*   **Pemilihan Kolom:**
-    *   Pilih kolom untuk sumbu X dan Y (untuk grafik seperti Bar, Line, Scatter, Area).
-    *   Pilih kolom kategori untuk grafik Pie atau Doughnut.
-    *   Pilih kolom numerik untuk Histogram dan sesuaikan jumlah *bins* (kelompok data).
-*   **Interaktif:** Grafik akan otomatis diperbarui saat Anda mengubah pilihan.
+*   Memungkinkan Anda membuat berbagai jenis grafik (Bar, Line, Pie, dll.) dari data dengan memilih kolom yang relevan.
 
-#### D.3. Tab Tanya Jawab (QA) - Mode Data Tabular (Termasuk Wawasan Otomatis)
-*   **Wawasan Otomatis:** Setelah Anda mengunggah data tabular dan proses analisis selesai, **wawasan otomatis dari AI** akan langsung ditampilkan di bagian atas halaman Tanya Jawab. Ini memberikan temuan menarik, pola, atau anomali dari data Anda.
-*   **Konteks:** Dataset yang Anda unggah menjadi konteks aktif.
-*   **Bertanya tentang Data:** Gunakan tombol **"Tanya Dataset"** di bawah kolom input chat untuk pertanyaan spesifik tentang dataset. Contoh: "Berapa rata-rata kolom 'Penjualan'?", "Produk mana yang paling banyak terjual?".
-*   **Perhitungan Dasar:** Sistem akan mencoba melakukan perhitungan statistik dasar (SUM, AVERAGE, dll.) jika diminta.
-*   **Pencarian Internet:** Sama seperti mode dokumen, input utama dan tombol "Cari di Internet" akan menggunakan pencarian web (lihat bagian E).
-*   **Info Tidak Ditemukan:** Jika AI tidak bisa menjawab pertanyaan dari data yang ada, ia akan memberitahu Anda dan mungkin menyarankan pencarian internet.
+#### D.3. Tab Tanya Jawab (QA)
+*   **Wawasan Otomatis:** Setelah unggah data tabular, wawasan AI & saran pertanyaan terkait akan muncul di atas area chat.
+*   **Interaksi:**
+    *   **Tanya Dataset:** Tombol untuk pertanyaan spesifik ke data Anda.
+    *   **Cari di Internet:** Kolom input utama & tombol untuk pencarian web.
+    *   Jika info tak ada di data, AI menyarankan pencarian web.
 
-### E. Fitur Tanya Jawab (QA) Lanjutan - Pencarian Internet
-Fitur ini tersedia di tab Tanya Jawab, baik saat ada konteks data/dokumen maupun tidak.
+### E. Tanya Jawab (QA) - Pencarian Internet Lanjutan
+Fitur ini tersedia di tab Tanya Jawab untuk semua mode.
+*   **Cara:** Ketik pertanyaan di input utama & tekan Enter / tombol "Cari di Internet", atau melalui saran dari AI saat info tidak ditemukan di konteks.
+*   **Hasil:**
+    *   **Percakapan (umum):** Jawaban naratif dengan tautan sumber disematkan langsung dalam teks.
+    *   **Terstruktur (jika pertanyaan diawali "cari..." atau "carikan..."):** Daftar sumber terstruktur dengan judul, ringkasan, dan tautan.
+    *   Semua hasil pencarian internet juga akan menyertakan daftar **"Sumber Tambahan yang Digunakan AI"**.
 
-#### E.1. Cara Menggunakan:
-*   **Pertanyaan Umum:** Ketik pertanyaan Anda di kolom input utama dan tekan Enter atau klik tombol **"Cari di Internet"**. Ini akan memicu pencarian internet.
-*   **Pertanyaan Kontekstual:** Jika pertanyaan Anda spesifik untuk data atau dokumen yang sedang aktif, gunakan tombol **"Tanya Dataset"** atau **"Tanya Dokumen"**. Jika AI tidak menemukan jawaban di konteks, ia mungkin memberi opsi untuk mencari di internet.
+### F. Fitur Interaktif Umum
+*   **Saran Pertanyaan Lanjutan:** Tombol saran pertanyaan muncul setelah respons AI di QA, pada ringkasan/wawasan awal, dan setelah hasil evaluasi. Mengkliknya akan mengirimkan pertanyaan ke QA.
+*   **Tombol "Sederhanakan":** Jika jawaban AI (dari konteks atau internet) dirasa panjang/kompleks, tombol ini mungkin muncul di QA untuk menyederhanakannya.
+*   **Penanganan Error & Notifikasi:** Pesan error (merah) atau notifikasi singkat (toast) akan muncul jika ada masalah atau info penting.
 
-#### E.2. Jenis Hasil Pencarian Internet:
-*   **Pencarian Percakapan (untuk pertanyaan umum):**
-    *   AI akan menjawab dalam format naratif yang mengalir.
-    *   Jika AI menggunakan informasi dari sumber spesifik, ia akan mencoba **menyematkan tautan ke sumber tersebut secara alami dalam kalimat** (contoh: "Menurut [Wikipedia](URL)..., ..."). Tautan ini bisa diklik dan membuka tab baru.
-    *   Daftar **"Sumber Tambahan yang Digunakan AI:"** juga akan muncul di bawah jawaban AI, berisi tautan mentah yang diakses AI.
-*   **Pencarian Terstruktur (jika pertanyaan diawali "cari..." atau "carikan..."):**
-    *   Contoh: "Carikan artikel tentang manfaat olahraga."
-    *   AI akan memberikan daftar sumber yang lebih terstruktur, masing-masing berisi:
-        *   **Judul Halaman Web.**
-        *   **Tautan Asli:** Tautan langsung yang bisa diklik ke sumbernya.
-        *   **Ringkasan Detail:** Penjelasan singkat konten halaman, dengan bagian penting yang mungkin **ditebalkan**.
-    *   Daftar **"Sumber Tambahan yang Digunakan AI:"** juga akan muncul.
+### G. Tips & Catatan
+*   **API Key:** Tidak perlu diatur oleh Anda; sudah terkonfigurasi.
+*   **Kesabaran:** Proses AI (analisis, evaluasi, pencarian) mungkin memerlukan beberapa detik.
+*   **Teks Tebal:** Untuk penekanan, teks yang ditebalkan AI dalam jawabannya akan ditampilkan tebal, terkadang dengan gaya khusus pada ringkasan/wawasan/evaluasi.
 
-### F. Fitur Interaktif Umum di Seluruh Aplikasi
-
-#### F.1. Saran Pertanyaan Lanjutan
-*   **Tampilan:** Setelah hampir setiap respons AI (ringkasan, QA kontekstual, wawasan, evaluasi, dan semua jenis pencarian internet), akan muncul **pesan AI kedua yang terpisah**. Pesan ini berisi beberapa tombol **"Saran Pertanyaan Lanjutan"**.
-*   **Fungsi:** Klik salah satu tombol saran untuk langsung mengirimkannya sebagai pertanyaan baru. Pertanyaan ini umumnya akan dijawab menggunakan pencarian internet.
-*   **Tampilan Teks Saran:** Saran pertanyaan ditampilkan sebagai teks biasa tanpa format tebal atau poin.
-
-#### F.2. Tombol "Sederhanakan"
-*   **Kapan Muncul:** Jika jawaban AI (misalnya dari hasil analisis, evaluasi, atau bahkan pencarian internet) dirasa cukup panjang atau kompleks, tombol **"Sederhanakan"** mungkin muncul di bawah pesan AI tersebut.
-*   **Fungsi:** Klik tombol ini, dan AI akan mencoba menyajikan ulang informasi tersebut dalam bahasa yang lebih ringkas dan mudah dipahami, beserta saran pertanyaan baru.
-
-#### F.3. Penanganan Error
-*   Jika terjadi masalah (misalnya, file gagal diproses, API gagal), pesan kesalahan akan muncul di bagian atas layar aplikasi, berwarna merah.
-*   Anda dapat menutup pesan error dengan mengklik ikon silang (X).
-
-#### F.4. Notifikasi Toast
-*   Untuk beberapa aksi atau peringatan (misalnya, mencoba mengakses tab yang memerlukan data padahal data belum ada), notifikasi singkat (toast) mungkin muncul di bagian atas layar. Beberapa notifikasi mungkin memiliki tombol aksi, seperti "Ke Halaman Input".
-
-### G. Tips Penggunaan & Catatan Tambahan
-*   **API Key:** Anda tidak perlu mengatur API Key, aplikasi ini sudah dikonfigurasi secara internal.
-*   **Kesabaran:** Proses AI seperti analisis data, evaluasi mendalam, atau pencarian internet yang kompleks mungkin memerlukan beberapa detik. Mohon tunggu hingga proses selesai.
-*   **Teks Tebal:** Teks yang **ditebalkan** oleh AI dalam jawabannya hanya akan ditampilkan tebal standar tanpa warna atau latar belakang khusus.
-
-Semoga panduan ini membantu Anda memanfaatkan semua fitur aplikasi dengan maksimal!
+Semoga panduan ini membantu Anda!
 `;
 
 const MarkdownComponents = {

@@ -64,7 +64,7 @@ export const InputSection: React.FC<InputSectionProps> = ({
   const modeConfigs: ModeConfig[] = [
     {
       key: 'document', title: "Dokumen", icon: DocumentChartBarIcon, iconColorClass: "text-lime-600",
-      description: "Unggah file PDF, DOCX, DOC, atau TXT untuk diringkas dan ditanyai.",
+      description: "Unggah dokumen (PDF, DOCX, DOC, TXT) untuk diringkas & ditanya jawab oleh AI.",
       fileTypesText: `.pdf, .docx, .doc, .txt. Maks: ${(MAX_FILE_SIZE_DOCUMENT / (1024*1024)).toFixed(0)} MB.`,
       submitButtonText: "Proses File Dokumen",
       acceptAttr: ".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain",
